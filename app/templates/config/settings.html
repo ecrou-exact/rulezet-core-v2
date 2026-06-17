@@ -937,7 +937,7 @@
             async function savePreference(payload) {
                 save_status.value = 'saving'
                 clearTimeout(save_timer)
-                const res = await apiFetch('/config/update', 'POST', payload)
+                const res = await apiFetch('/api/config/', 'PATCH', payload)
                 if (res.ok) {
                     save_status.value = 'saved'
                     save_timer = setTimeout(() => { save_status.value = '' }, 2000)
