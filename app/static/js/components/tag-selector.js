@@ -1,25 +1,28 @@
 /**
  * tag-selector.js — Interactive tag picker with inline creation.
  *
- * Props:
+ * Exports:
+ *   TagSelector (default) — searchable tag picker, v-model: Array of tag objects
+ *   TagCreate             — unified create modal (custom or vulnerability)
+ *   detectCVE             — CVE identifier detection utility
+ *
+ * Props (TagSelector):
  *   modelValue  : Array   Selected tag objects (v-model)
  *   sources     : Array   Allowed sources ['custom','taxonomy','galaxy','vulnerability']
  *   max         : Number  Max selectable tags (0 = unlimited)
  *   placeholder : String
  *   disabled    : Boolean
  *
- * Emits: update:modelValue
- *
- * Exports: TagSelector (default), TagCreateCustom, TagCreateVulnerability, detectCVE
+ * API used: GET /api/tags/select  — lightweight search endpoint
  */
 import TagPill from '/static/js/components/tag-pill.js'
 import { apiFetch, TOAST } from '/static/js/constants.js'
 import { create_message }  from '/static/js/toaster.js'
 
-const { ref, computed, onMounted, onBeforeUnmount, nextTick } = Vue
+const { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue
 
 /*───────────────────────────────────────────────────────────
-  CVE / vulnerability syntax detection (mirrors detect_cve.py)
+  CVE syntax detection (mirrors detect_cve.py)
 ───────────────────────────────────────────────────────────*/
 const CVE_PATTERN = (
     '\\b(' +
@@ -42,11 +45,10 @@ function detectCVE(text) {
     const matches = Array.from(text.matchAll(CVE_RE)).map(function(m) {
         return m[0].replace(/[\s_]/g, '-').toUpperCase()
     })
-    const unique = []
-    const seen = {}
+    const unique = [], seen = {}
     matches.forEach(function(id) { if (!seen[id]) { seen[id] = true; unique.push(id) } })
     unique.sort()
-    return { valid: true, ids: unique }
+    return { valid: unique.length > 0, ids: unique }
 }
 
 function normalizeCVE(raw) {
@@ -54,229 +56,227 @@ function normalizeCVE(raw) {
 }
 
 /*───────────────────────────────────────────────────────────
-  TagCreateCustom
+  TagCreate — unified modal: choose type then fill form
+  Emits: created(tag), close
 ───────────────────────────────────────────────────────────*/
-const TagCreateCustom = {
-    name: 'TagCreateCustom',
+const TagCreate = {
+    name: 'TagCreate',
     emits: ['created', 'close'],
-    delimiters: ['[[', ']]'],
     template: `
 <div class="ts-modal-backdrop" @mousedown.self="$emit('close')">
-    <div class="ts-modal" role="dialog" aria-modal="true">
-        <div class="ts-modal-header">
-            <span class="ts-modal-title"><i class="fas fa-user-tag me-2"></i>New custom tag</span>
-            <button class="ts-modal-close" @click="$emit('close')" aria-label="Close">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>
-        <div class="ts-modal-body">
-            <div class="ts-field">
-                <label class="ts-label">Name <span class="ts-required">*</span></label>
-                <input ref="name_ref" v-model.trim="name" class="ts-input"
-                       placeholder="namespace:value  or  simple-name"
-                       @keydown.enter="submit" />
-                <p v-if="name_hint" class="ts-hint">[[ name_hint ]]</p>
-            </div>
-            <div class="ts-field">
-                <label class="ts-label">Description</label>
-                <textarea v-model.trim="description" class="ts-input ts-textarea"
-                          rows="2" placeholder="Optional description"></textarea>
-            </div>
-            <div class="ts-field-row">
-                <div class="ts-field">
-                    <label class="ts-label">Color</label>
-                    <div class="ts-color-row">
-                        <input type="color" v-model="color" class="ts-color-input" />
-                        <span class="ts-color-hex">[[ color ]]</span>
-                    </div>
-                </div>
-                <div class="ts-field">
-                    <label class="ts-label">Icon <span class="ts-hint-inline">(FA class)</span></label>
-                    <input v-model.trim="icon" class="ts-input" placeholder="fa-tag" />
-                </div>
-            </div>
-            <div class="ts-field">
-                <label class="ts-label">Visibility</label>
-                <label class="ts-toggle">
-                    <input type="checkbox" v-model="is_public" />
-                    <span class="ts-toggle-label">Public (visible to all users)</span>
-                </label>
-            </div>
-        </div>
-        <div class="ts-modal-footer">
-            <button class="ts-btn ts-btn-ghost" @click="$emit('close')">Cancel</button>
-            <button class="ts-btn ts-btn-primary" :disabled="busy || !name" @click="submit">
-                <i v-if="busy" class="fas fa-spinner fa-spin me-1"></i>
-                <i v-else class="fas fa-plus me-1"></i>Create tag
-            </button>
-        </div>
-        <p v-if="err" class="ts-error"><i class="fas fa-triangle-exclamation me-1"></i>[[ err ]]</p>
+  <div class="ts-modal" role="dialog" aria-modal="true">
+
+    <!-- header -->
+    <div class="ts-modal-header">
+      <span class="ts-modal-title">
+        <i v-if="!step" class="fas fa-tag me-2"></i>
+        <i v-else-if="step === 'custom'" class="fas fa-user-tag me-2"></i>
+        <i v-else class="fas fa-bug me-2"></i>
+        {{ step ? (step === 'custom' ? 'New custom tag' : 'New vulnerability tag') : 'New tag' }}
+      </span>
+      <button class="ts-modal-close" @click="$emit('close')" aria-label="Close">
+        <i class="fas fa-xmark"></i>
+      </button>
     </div>
+
+    <!-- step 0: choose type -->
+    <div v-if="!step" class="ts-modal-body">
+      <p class="ts-hint mb-3">What kind of tag do you want to create?</p>
+      <div class="ts-type-grid">
+        <button class="ts-type-card" @click="step = 'custom'">
+          <i class="fas fa-user-tag ts-type-icon"></i>
+          <span class="ts-type-label">Custom</span>
+          <span class="ts-type-desc">A tag you define with a name, color and icon.</span>
+        </button>
+        <button class="ts-type-card ts-type-card--vuln" @click="step = 'vuln'">
+          <i class="fas fa-bug ts-type-icon"></i>
+          <span class="ts-type-label">Vulnerability</span>
+          <span class="ts-type-desc">A CVE, GHSA, PYSEC or other identifier.</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- step: custom form -->
+    <div v-else-if="step === 'custom'" class="ts-modal-body">
+      <div class="ts-field">
+        <label class="ts-label">Name <span class="ts-required">*</span></label>
+        <input ref="name_ref" v-model.trim="c_name" class="ts-input"
+               placeholder="namespace:value  or  simple-name"
+               @keydown.enter="submit_custom" />
+        <p v-if="c_name_hint" class="ts-hint">{{ c_name_hint }}</p>
+      </div>
+      <div class="ts-field">
+        <label class="ts-label">Description</label>
+        <textarea v-model.trim="c_desc" class="ts-input ts-textarea"
+                  rows="2" placeholder="Optional description"></textarea>
+      </div>
+      <div class="ts-field-row">
+        <div class="ts-field">
+          <label class="ts-label">Color</label>
+          <div class="ts-color-row">
+            <input type="color" v-model="c_color" class="ts-color-input" />
+            <span class="ts-color-hex">{{ c_color }}</span>
+          </div>
+        </div>
+        <div class="ts-field">
+          <label class="ts-label">Icon <span class="ts-hint-inline">FA class</span></label>
+          <input v-model.trim="c_icon" class="ts-input" placeholder="fa-tag" />
+        </div>
+      </div>
+    </div>
+
+    <!-- step: vulnerability form -->
+    <div v-else class="ts-modal-body">
+      <div class="ts-field">
+        <label class="ts-label">Identifier <span class="ts-required">*</span></label>
+        <input ref="vuln_ref" v-model.trim="v_raw" class="ts-input ts-input-mono"
+               :class="v_input_class"
+               placeholder="CVE-2024-12345"
+               @input="on_vuln_input" @keydown.enter="submit_vuln" />
+        <p v-if="v_raw && !v_valid" class="ts-hint ts-hint-error">
+          <i class="fas fa-triangle-exclamation me-1"></i>
+          Unrecognised format. Supported: CVE, GCVE, GHSA, PYSEC, GSD, wid-sec-w, cisco-sa, RHSA, msrc_CVE, CERTFR
+        </p>
+        <p v-if="v_norm" class="ts-hint ts-hint-ok">
+          <i class="fas fa-check me-1"></i>Will be saved as: <code>{{ v_norm }}</code>
+        </p>
+      </div>
+      <div class="ts-field">
+        <label class="ts-label">Description <span class="ts-hint-inline">optional</span></label>
+        <textarea v-model.trim="v_desc" class="ts-input ts-textarea"
+                  rows="2" placeholder="Brief description"></textarea>
+      </div>
+      <p class="ts-hint ts-hint-formats">
+        <i class="fas fa-info-circle me-1"></i>
+        Supported: CVE, GCVE, GHSA, PYSEC, GSD, wid-sec-w, cisco-sa, RHSA, msrc_CVE, CERTFR
+      </p>
+    </div>
+
+    <!-- footer -->
+    <div class="ts-modal-footer">
+      <button class="ts-btn ts-btn-ghost" @click="step ? step = '' : $emit('close')">
+        {{ step ? 'Back' : 'Cancel' }}
+      </button>
+      <button v-if="step === 'custom'"
+              class="ts-btn ts-btn-primary"
+              :disabled="busy || !c_name"
+              @click="submit_custom">
+        <i v-if="busy" class="fas fa-spinner fa-spin me-1"></i>
+        <i v-else class="fas fa-plus me-1"></i>Create tag
+      </button>
+      <button v-else-if="step === 'vuln'"
+              class="ts-btn ts-btn-danger"
+              :disabled="busy || !v_valid"
+              @click="submit_vuln">
+        <i v-if="busy" class="fas fa-spinner fa-spin me-1"></i>
+        <i v-else class="fas fa-bug me-1"></i>Create
+      </button>
+    </div>
+
+    <p v-if="err" class="ts-error">
+      <i class="fas fa-triangle-exclamation me-1"></i>{{ err }}
+    </p>
+
+  </div>
 </div>`,
     setup(props, { emit }) {
-        const name_ref    = ref(null)
-        const busy        = ref(false)
-        const err         = ref('')
-        const name        = ref('')
-        const description = ref('')
-        const color       = ref('#6c757d')
-        const icon        = ref('fa-tag')
-        const is_public   = ref(false)
+        const step     = ref('')   // '' | 'custom' | 'vuln'
+        const busy     = ref(false)
+        const err      = ref('')
+        const name_ref = ref(null)
+        const vuln_ref = ref(null)
 
-        const name_hint = computed(function() {
-            if (!name.value) return ''
-            var idx = name.value.indexOf(':')
-            if (idx !== -1) return 'Namespace: "' + name.value.slice(0, idx) + '"'
-            return ''
+        // custom form
+        const c_name  = ref('')
+        const c_desc  = ref('')
+        const c_color = ref('#6c757d')
+        const c_icon  = ref('fa-tag')
+
+        const c_name_hint = computed(function() {
+            if (!c_name.value) return ''
+            var idx = c_name.value.indexOf(':')
+            return idx !== -1 ? 'Namespace: "' + c_name.value.slice(0, idx) + '"' : ''
         })
 
-        onMounted(function() { nextTick(function() { name_ref.value && name_ref.value.focus() }) })
+        // vuln form
+        const v_raw   = ref('')
+        const v_desc  = ref('')
+        const v_norm  = ref('')
+        const v_valid = ref(false)
 
-        async function submit() {
-            if (!name.value || busy.value) return
-            busy.value = true
-            err.value  = ''
+        const v_input_class = computed(function() {
+            if (!v_raw.value) return ''
+            return v_valid.value ? 'ts-input-ok' : 'ts-input-error'
+        })
+
+        watch(step, function(val) {
+            err.value = ''
+            nextTick(function() {
+                if (val === 'custom' && name_ref.value) name_ref.value.focus()
+                if (val === 'vuln'   && vuln_ref.value) vuln_ref.value.focus()
+            })
+        })
+
+        function on_vuln_input() {
+            var text = v_raw.value
+            var r = detectCVE(text)
+            if (r.ids.length === 1) { v_valid.value = true; v_norm.value = r.ids[0]; return }
+            if (text.length > 3) {
+                var r2 = detectCVE(normalizeCVE(text))
+                if (r2.ids.length === 1) { v_valid.value = true; v_norm.value = r2.ids[0]; return }
+            }
+            v_valid.value = false
+            v_norm.value  = ''
+        }
+
+        async function submit_custom() {
+            if (!c_name.value || busy.value) return
+            busy.value = true; err.value = ''
             var res = await apiFetch('/api/tags/', 'POST', {
-                name:        name.value,
-                description: description.value,
-                color:       color.value,
-                icon:        icon.value,
-                is_public:   is_public.value,
-                source:      'custom',
+                name: c_name.value, description: c_desc.value,
+                color: c_color.value, icon: c_icon.value,
+                is_public: false, source: 'custom',
             })
             busy.value = false
             if (!res.ok) {
                 var d = await res.json().catch(function() { return {} })
-                err.value = d.message || 'Error creating tag'
-                return
+                err.value = d.message || 'Error creating tag'; return
             }
             var data = await res.json()
             create_message('Tag created', TOAST.SUCCESS)
-            emit('created', data.tag)
+            emit('created', data)
         }
 
-        return { name_ref, busy, err, name, description, color, icon, is_public, name_hint, submit }
-    },
-}
-
-/*───────────────────────────────────────────────────────────
-  TagCreateVulnerability
-───────────────────────────────────────────────────────────*/
-const TagCreateVulnerability = {
-    name: 'TagCreateVulnerability',
-    emits: ['created', 'close'],
-    delimiters: ['[[', ']]'],
-    template: `
-<div class="ts-modal-backdrop" @mousedown.self="$emit('close')">
-    <div class="ts-modal" role="dialog" aria-modal="true">
-        <div class="ts-modal-header">
-            <span class="ts-modal-title"><i class="fas fa-bug me-2"></i>New vulnerability tag</span>
-            <button class="ts-modal-close" @click="$emit('close')" aria-label="Close">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>
-        <div class="ts-modal-body">
-            <div class="ts-field">
-                <label class="ts-label">Identifier <span class="ts-required">*</span></label>
-                <input ref="id_ref" v-model.trim="raw_input" class="ts-input ts-input-mono"
-                       :class="input_class"
-                       placeholder="CVE-2024-12345"
-                       @input="on_input" @keydown.enter="submit" />
-                <p v-if="raw_input && !is_valid" class="ts-hint ts-hint-error">
-                    <i class="fas fa-triangle-exclamation me-1"></i>
-                    Unrecognised format. Supported: CVE, GCVE, GHSA, PYSEC, GSD, wid-sec-w, cisco-sa, RHSA, msrc_CVE, CERTFR
-                </p>
-                <p v-if="normalized" class="ts-hint ts-hint-ok">
-                    <i class="fas fa-check me-1"></i>Will be saved as: <code>[[ normalized ]]</code>
-                </p>
-            </div>
-            <div class="ts-field">
-                <label class="ts-label">Description <span class="ts-hint-inline">(optional)</span></label>
-                <textarea v-model.trim="description" class="ts-input ts-textarea"
-                          rows="2" placeholder="Brief description of this vulnerability"></textarea>
-            </div>
-            <p class="ts-hint ts-hint-formats">
-                <i class="fas fa-info-circle me-1"></i>
-                Supported: CVE, GCVE, GHSA, PYSEC, GSD, wid-sec-w, cisco-sa, RHSA, msrc_CVE, CERTFR
-            </p>
-        </div>
-        <div class="ts-modal-footer">
-            <button class="ts-btn ts-btn-ghost" @click="$emit('close')">Cancel</button>
-            <button class="ts-btn ts-btn-danger" :disabled="busy || !is_valid" @click="submit">
-                <i v-if="busy" class="fas fa-spinner fa-spin me-1"></i>
-                <i v-else class="fas fa-bug me-1"></i>Create
-            </button>
-        </div>
-        <p v-if="err" class="ts-error"><i class="fas fa-triangle-exclamation me-1"></i>[[ err ]]</p>
-    </div>
-</div>`,
-    setup(props, { emit }) {
-        const id_ref      = ref(null)
-        const raw_input   = ref('')
-        const description = ref('')
-        const normalized  = ref('')
-        const is_valid    = ref(false)
-        const busy        = ref(false)
-        const err         = ref('')
-
-        const input_class = computed(function() {
-            if (!raw_input.value) return ''
-            return is_valid.value ? 'ts-input-ok' : 'ts-input-error'
-        })
-
-        onMounted(function() { nextTick(function() { id_ref.value && id_ref.value.focus() }) })
-
-        function on_input() {
-            var text = raw_input.value
-            var result = detectCVE(text)
-            if (result.ids.length === 1) {
-                is_valid.value   = true
-                normalized.value = result.ids[0]
-                return
-            }
-            if (text.length > 3) {
-                var n = normalizeCVE(text)
-                var r2 = detectCVE(n)
-                if (r2.ids.length === 1) {
-                    is_valid.value   = true
-                    normalized.value = r2.ids[0]
-                    return
-                }
-            }
-            is_valid.value   = false
-            normalized.value = ''
-        }
-
-        async function submit() {
-            if (!is_valid.value || busy.value) return
-            busy.value = true
-            err.value  = ''
-            var tag_name = 'vulnerability:' + normalized.value
+        async function submit_vuln() {
+            if (!v_valid.value || busy.value) return
+            busy.value = true; err.value = ''
             var res = await apiFetch('/api/tags/', 'POST', {
-                name:        tag_name,
-                description: description.value,
-                color:       '#dc3545',
-                icon:        'fa-bug',
-                is_public:   true,
-                source:      'vulnerability',
+                name: 'vulnerability:' + v_norm.value,
+                description: v_desc.value,
+                color: '#dc3545', icon: 'fa-bug',
+                is_public: true, source: 'vulnerability',
             })
             busy.value = false
             if (!res.ok) {
                 var d = await res.json().catch(function() { return {} })
-                err.value = d.message || 'Error creating tag'
-                return
+                err.value = d.message || 'Error creating tag'; return
             }
             var data = await res.json()
             create_message('Vulnerability tag created', TOAST.SUCCESS)
-            emit('created', data.tag)
+            emit('created', data)
         }
 
-        return { id_ref, raw_input, description, normalized, is_valid, busy, err, input_class, on_input, submit }
+        return {
+            step, busy, err, name_ref, vuln_ref,
+            c_name, c_desc, c_color, c_icon, c_name_hint,
+            v_raw, v_desc, v_norm, v_valid, v_input_class,
+            on_vuln_input, submit_custom, submit_vuln,
+        }
     },
 }
 
 /*───────────────────────────────────────────────────────────
-  TagSelector — main component
+  TagSelector — main picker component
 ───────────────────────────────────────────────────────────*/
 const SOURCE_META = {
     custom:        { label: 'Custom',        icon: 'fa-user-tag' },
@@ -287,9 +287,8 @@ const SOURCE_META = {
 
 const TagSelector = {
     name: 'TagSelector',
-    components: { TagPill, TagCreateCustom, TagCreateVulnerability },
+    components: { TagPill, TagCreate },
     emits: ['update:modelValue'],
-    delimiters: ['[[', ']]'],
     props: {
         modelValue:  { type: Array,   default: function() { return [] } },
         sources:     { type: Array,   default: function() { return ['custom', 'taxonomy', 'galaxy', 'vulnerability'] } },
@@ -300,16 +299,23 @@ const TagSelector = {
     template: `
 <div class="ts-root" :class="disabled ? 'ts-root--disabled' : ''">
 
-    <div class="ts-selected" v-if="modelValue.length">
+    <!-- Selected tags + create button -->
+    <div class="ts-selected">
+        <span v-if="!modelValue.length && disabled" class="ts-selected-empty">No tags</span>
+        <span v-else-if="!modelValue.length" class="ts-selected-empty">No tags selected</span>
         <span v-for="tag in modelValue" :key="tag.id" class="ts-selected-item">
             <tag-pill :tag="tag" size="sm"></tag-pill>
-            <button v-if="!disabled" class="ts-remove" @click.stop="remove(tag)">
+            <button v-if="!disabled" class="ts-remove" @click.stop="remove(tag)" type="button">
                 <i class="fas fa-xmark"></i>
             </button>
         </span>
+        <button v-if="!disabled" class="ts-selected-add" @mousedown.prevent="show_create = true" type="button" title="Create new tag">
+            <i class="fas fa-plus"></i>
+        </button>
     </div>
 
     <div v-if="!disabled" class="ts-search-bar">
+        <!-- Search row: input + create button -->
         <div class="ts-search-wrap">
             <i class="fas fa-magnifying-glass ts-search-icon"></i>
             <input
@@ -324,29 +330,36 @@ const TagSelector = {
                 @keydown.enter.prevent="selectHighlighted"
                 @input="onInput"
             />
-            <button v-if="query" class="ts-search-clear" @click="clearQuery">
+            <button v-if="query" class="ts-search-clear" @click="clearQuery" type="button">
                 <i class="fas fa-xmark"></i>
+            </button>
+            <button class="ts-create-btn" @mousedown.prevent="show_create = true" type="button" title="Create new tag">
+                <i class="fas fa-plus"></i>
             </button>
         </div>
 
+        <!-- Source filter chips -->
         <div class="ts-source-chips">
             <button
                 v-for="src in sources"
                 :key="src"
                 class="ts-source-chip"
                 :class="active_source === src ? 'is-active' : ''"
-                @click="toggleSource(src)">
-                <i :class="'fas ' + getIcon(src)"></i> [[ getLabel(src) ]]
+                @click="toggleSource(src)"
+                type="button">
+                <i :class="'fas ' + getIcon(src)"></i> {{ getLabel(src) }}
             </button>
             <button
                 class="ts-source-chip"
                 :class="active_source === null ? 'is-active' : ''"
-                @click="clearSource">
+                @click="clearSource"
+                type="button">
                 All
             </button>
         </div>
     </div>
 
+    <!-- Dropdown results -->
     <div v-if="open && !disabled" class="ts-dropdown" ref="dropdown_ref">
         <div v-if="loading" class="ts-dropdown-state">
             <i class="fas fa-spinner fa-spin me-2"></i>Loading...
@@ -366,46 +379,29 @@ const TagSelector = {
                 <i v-if="isSelected(tag)" class="fas fa-check ts-dropdown-check"></i>
             </div>
         </template>
-
-        <div class="ts-dropdown-actions">
-            <button v-if="canCustom" class="ts-action-btn" @mousedown.prevent="show_custom = true">
-                <i class="fas fa-plus"></i> New custom tag
-            </button>
-            <button v-if="canVuln" class="ts-action-btn ts-action-btn--vuln" @mousedown.prevent="show_vuln = true">
-                <i class="fas fa-bug"></i> New vulnerability
-            </button>
-        </div>
     </div>
 
+    <!-- Create modal -->
     <Teleport to="body">
-        <tag-create-custom
-            v-if="show_custom"
+        <tag-create
+            v-if="show_create"
             @created="onCreated"
-            @close="show_custom = false">
-        </tag-create-custom>
-        <tag-create-vulnerability
-            v-if="show_vuln"
-            @created="onCreated"
-            @close="show_vuln = false">
-        </tag-create-vulnerability>
+            @close="show_create = false">
+        </tag-create>
     </Teleport>
 
 </div>`,
     setup(props, { emit }) {
-        const search_ref    = ref(null)
-        const dropdown_ref  = ref(null)
-        const query         = ref('')
-        const open          = ref(false)
-        const loading       = ref(false)
-        const results       = ref([])
-        const highlighted   = ref(0)
+        const search_ref   = ref(null)
+        const dropdown_ref = ref(null)
+        const query        = ref('')
+        const open         = ref(false)
+        const loading      = ref(false)
+        const results      = ref([])
+        const highlighted  = ref(0)
         const active_source = ref(null)
-        const show_custom   = ref(false)
-        const show_vuln     = ref(false)
-        var   debounce_id   = null
-
-        const canCustom = computed(function() { return props.sources.indexOf('custom') !== -1 })
-        const canVuln   = computed(function() { return props.sources.indexOf('vulnerability') !== -1 })
+        const show_create  = ref(false)
+        var   debounce_id  = null
 
         function getLabel(src) { return (SOURCE_META[src] || {}).label || src }
         function getIcon(src)  { return (SOURCE_META[src] || {}).icon  || 'fa-tag' }
@@ -424,15 +420,22 @@ const TagSelector = {
         async function load() {
             loading.value     = true
             highlighted.value = 0
-            var qs = '?search=' + encodeURIComponent(query.value) + '&limit=30'
-            if (active_source.value) qs += '&source=' + active_source.value
-            var res = await apiFetch('/api/tags/' + qs, 'GET')
+
+            // Build sources param: use active_source filter if set,
+            // otherwise send the full allowed list from props
+            var src_param = active_source.value
+                ? active_source.value
+                : props.sources.join(',')
+
+            var qs = '?limit=40'
+                + '&sources=' + encodeURIComponent(src_param)
+            if (query.value) qs += '&search=' + encodeURIComponent(query.value)
+
+            var res = await apiFetch('/api/tags/select' + qs, 'GET')
             loading.value = false
             if (!res.ok) return
             var d = await res.json()
-            var allowed = {}
-            props.sources.forEach(function(s) { allowed[s] = true })
-            results.value = (d.tags || []).filter(function(t) { return allowed[t.source] })
+            results.value = d.tags || []
         }
 
         function onInput() {
@@ -473,8 +476,7 @@ const TagSelector = {
         }
 
         function onCreated(tag) {
-            show_custom.value = false
-            show_vuln.value   = false
+            show_create.value = false
             select(tag)
             load()
         }
@@ -489,13 +491,13 @@ const TagSelector = {
 
         return {
             search_ref, dropdown_ref, query, open, loading, results, highlighted,
-            active_source, show_custom, show_vuln,
-            canCustom, canVuln, getLabel, getIcon,
-            isSelected, rowClass, load, onInput, clearQuery,
-            toggleSource, clearSource, select, remove, move, selectHighlighted, onCreated,
+            active_source, show_create,
+            getLabel, getIcon, isSelected, rowClass,
+            load, onInput, clearQuery, toggleSource, clearSource,
+            select, remove, move, selectHighlighted, onCreated,
         }
     },
 }
 
-export { TagSelector, TagCreateCustom, TagCreateVulnerability, detectCVE }
+export { TagSelector, TagCreate, detectCVE }
 export default TagSelector

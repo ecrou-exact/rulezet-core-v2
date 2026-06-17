@@ -100,6 +100,51 @@ def _list_galaxies() -> list[dict]:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+def select_tags(search='', sources=None, limit=40,
+                viewer_id=None, is_admin=False) -> list[Tag]:
+    """
+    Lightweight query for the tag-selector component.
+    Returns active tags visible to the caller, ordered by relevance.
+    - Admins see all tags (public + private custom from all users).
+    - Regular users see public tags + their own custom tags.
+    - sources: list of source strings to include (None = all).
+    """
+    q = Tag.query.filter_by(is_active=True)
+
+    if sources:
+        q = q.filter(Tag.source.in_(sources))
+
+    if not is_admin:
+        if viewer_id:
+            q = q.filter(
+                db.or_(
+                    Tag.is_public == True,
+                    db.and_(Tag.source == 'custom', Tag.created_by == viewer_id)
+                )
+            )
+        else:
+            q = q.filter(Tag.is_public == True)
+
+    if search:
+        pattern = f'%{search}%'
+        q = q.filter(
+            db.or_(
+                Tag.name.ilike(pattern),
+                Tag.namespace.ilike(pattern),
+                Tag.description.ilike(pattern),
+            )
+        )
+        # Exact-prefix matches first, then the rest
+        q = q.order_by(
+            sa_case((Tag.name.ilike(f'{search}%'), 0), else_=1),
+            Tag.name,
+        )
+    else:
+        q = q.order_by(Tag.source, Tag.namespace, Tag.name)
+
+    return q.limit(limit).all()
+
+
 def list_tags(source=None, namespace=None, is_active=None, is_public=None,
               viewer_id=None, is_admin=False) -> list[Tag]:
     q = Tag.query

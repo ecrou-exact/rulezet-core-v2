@@ -16,13 +16,22 @@
 .ts-selected {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: .35rem;
     margin-bottom: .5rem;
-    padding: .4rem .5rem;
+    padding: .35rem .4rem .35rem .5rem;
     background: var(--bg-elevated);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     min-height: 2.5rem;
+}
+
+.ts-selected-empty {
+    flex: 1;
+    font-size: .8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    user-select: none;
 }
 
 .ts-selected-item {
@@ -51,6 +60,30 @@
     color: var(--text-main);
 }
 
+/* + button pinned to the right of the selected area */
+.ts-selected-add {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 1.5px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: .75rem;
+    transition: all var(--transition);
+}
+.ts-selected-add:hover {
+    border-color: var(--brand);
+    border-style: solid;
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 8%, var(--bg-elevated));
+}
+
 /*---SEARCH_BAR---*/
 .ts-search-bar {
     display: flex;
@@ -74,7 +107,7 @@
 
 .ts-search-input {
     width: 100%;
-    padding: .5rem .75rem .5rem 2.1rem;
+    padding: .5rem 4.5rem .5rem 2.1rem; /* right: room for clear + create buttons */
     border: 1.5px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--bg-body);
@@ -90,7 +123,7 @@
 
 .ts-search-clear {
     position: absolute;
-    right: .6rem;
+    right: 2.4rem;
     border: none;
     background: transparent;
     color: var(--text-muted);
@@ -101,6 +134,29 @@
     transition: color var(--transition);
 }
 .ts-search-clear:hover { color: var(--text-main); }
+
+.ts-create-btn {
+    position: absolute;
+    right: .4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: .75rem;
+    transition: all var(--transition);
+    flex-shrink: 0;
+}
+.ts-create-btn:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 8%, var(--bg-elevated));
+}
 
 /*---SOURCE_CHIPS---*/
 .ts-source-chips {
@@ -148,7 +204,7 @@
     box-shadow: 0 8px 24px rgba(0,0,0,.15);
     max-height: 320px;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: visible; /* do not clip tag-pill split pills */
 }
 
 .ts-dropdown-state {
@@ -182,41 +238,6 @@
     flex-shrink: 0;
 }
 
-/*---DROPDOWN_ACTIONS---*/
-.ts-dropdown-actions {
-    display: flex;
-    gap: .4rem;
-    padding: .5rem .75rem;
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-elevated);
-    position: sticky;
-    bottom: 0;
-}
-
-.ts-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
-    padding: .3rem .7rem;
-    border: 1.5px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-body);
-    color: var(--text-secondary);
-    font-size: .78rem;
-    cursor: pointer;
-    transition: all var(--transition);
-    white-space: nowrap;
-}
-.ts-action-btn:hover {
-    border-color: var(--brand);
-    color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 6%, var(--bg-body));
-}
-.ts-action-btn--vuln:hover {
-    border-color: #dc3545;
-    color: #dc3545;
-    background: color-mix(in srgb, #dc3545 6%, var(--bg-body));
-}
 
 /*---MODAL---*/
 .ts-modal-backdrop {
@@ -446,6 +467,53 @@
     border-top: 1px solid color-mix(in srgb, #dc3545 25%, transparent);
     color: #dc3545;
     font-size: .82rem;
+}
+
+/*---TYPE_CHOOSER---*/
+.ts-type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+}
+
+.ts-type-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .45rem;
+    padding: 1.25rem .75rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-body);
+    cursor: pointer;
+    transition: all var(--transition);
+    text-align: center;
+}
+.ts-type-card:hover {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 5%, var(--bg-body));
+}
+.ts-type-card--vuln:hover {
+    border-color: #dc3545;
+    background: color-mix(in srgb, #dc3545 5%, var(--bg-body));
+}
+
+.ts-type-icon {
+    font-size: 1.6rem;
+    color: var(--brand);
+}
+.ts-type-card--vuln .ts-type-icon { color: #dc3545; }
+
+.ts-type-label {
+    font-size: .9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.ts-type-desc {
+    font-size: .75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
 }
 
 /*---DARK_MODE---*/

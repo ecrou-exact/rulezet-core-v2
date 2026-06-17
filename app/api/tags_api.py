@@ -9,8 +9,8 @@ from ..core.utils.decorators import api_require_permission
 from ..core.utils.utils import get_user_api
 from ..core.db_class.tag import Tag
 from ..features.tags.tags_core import (
-    list_tags, list_tags_paginated, get_tag_by_uuid, create_tag_core, update_tag_core,
-    delete_tag_core, bulk_action_core, get_import_sources,
+    list_tags, list_tags_paginated, select_tags, get_tag_by_uuid, create_tag_core,
+    update_tag_core, delete_tag_core, bulk_action_core, get_import_sources,
     enqueue_taxonomy_import, enqueue_galaxy_import,
     enqueue_all_taxonomies_import, enqueue_all_galaxies_import,
     get_available_namespaces,
@@ -30,6 +30,43 @@ def _get_caller():
         return None, False
     is_admin = bool(user.role and user.role.admin)
     return user, is_admin
+
+
+# ── Tag selector (lightweight search for the tag-selector component) ──────────
+
+@tags_ns.route('/select')
+class TagSelect(Resource):
+
+    @api_require_permission('tags.view')
+    def get(self):
+        """
+        Lightweight tag search for the tag-selector UI component.
+
+        Query params:
+          search  (str)  — prefix/substring match on name, namespace, description
+          sources (str)  — comma-separated list: custom,taxonomy,galaxy,vulnerability
+                           omit or empty = all sources
+          limit   (int)  — max results (default 40, max 100)
+
+        Visibility:
+          Admins see every active tag.
+          Regular users see public tags + their own custom tags.
+        """
+        user, is_admin = _get_caller()
+        search  = request.args.get('search', '').strip()
+        sources_raw = request.args.get('sources', '').strip()
+        sources = [s.strip() for s in sources_raw.split(',') if s.strip()] or None
+        limit   = min(100, max(1, int(request.args.get('limit', 40))))
+
+        tags = select_tags(
+            search=search,
+            sources=sources,
+            limit=limit,
+            viewer_id=user.id if user else None,
+            is_admin=is_admin,
+        )
+        vid = user.id if user else None
+        return {'tags': [t.to_json(viewer_id=vid, is_admin=is_admin) for t in tags]}, 200
 
 
 # ── List / Create ─────────────────────────────────────────────────────────────

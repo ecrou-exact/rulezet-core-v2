@@ -1,0 +1,183 @@
+/*
+ * tag-pill.css — Standalone CSS for the tag-pill component.
+ * Include this on any page that uses <tag-pill> or <tag-selector>.
+ * tags/tags.css also includes these rules for the tags admin page.
+ */
+
+/*---PILL---*/
+.tag-pill {
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: .72rem;
+    font-weight: 600;
+    line-height: 1;
+    max-width: 320px;
+    vertical-align: middle;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
+    text-decoration: none;
+    cursor: default;
+    user-select: none;
+}
+
+.tag-pill-left {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .3rem .5rem;
+    background: #2d3748;
+    color: #e2e8f0;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: .68rem;
+    letter-spacing: .02em;
+}
+[data-bs-theme="dark"] .tag-pill-left {
+    background: #1a202c;
+    color: #a0aec0;
+}
+.tag-pill-left i { font-size: .62rem; opacity: .8; }
+
+.tag-pill-right {
+    display: flex;
+    align-items: center;
+    padding: .3rem .55rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-size: .72rem;
+}
+.tag-pill-right span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tag-pill--sm .tag-pill-left  { padding: .2rem .4rem;  font-size: .63rem; }
+.tag-pill--sm .tag-pill-right { padding: .2rem .45rem; font-size: .63rem; }
+.tag-pill--lg .tag-pill-left  { padding: .45rem .65rem; font-size: .78rem; }
+.tag-pill--lg .tag-pill-right { padding: .45rem .7rem;  font-size: .78rem; }
+.tag-pill--inactive { opacity: .45; filter: grayscale(.5); }
+
+/*---WRAPPER---*/
+.tag-pill-wrapper {
+    display: inline-flex;
+    position: relative;
+    vertical-align: middle;
+}
+
+/*---TOOLTIP (position:fixed set by JS)---*/
+.tag-pill-tooltip {
+    min-width: 240px;
+    max-width: 360px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: .75rem .9rem .7rem;
+    pointer-events: none;
+    white-space: normal;
+    text-align: left;
+}
+.tag-pill-tooltip--above::before,
+.tag-pill-tooltip--above::after {
+    content: '';
+    position: absolute;
+    top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: solid transparent;
+    pointer-events: none;
+}
+.tag-pill-tooltip--above::before { border-width: 7px; border-top-color: var(--border); }
+.tag-pill-tooltip--above::after  { border-width: 6px; border-top-color: var(--bg-surface); margin-top: 1px; }
+
+.tag-pill-tooltip--below::before,
+.tag-pill-tooltip--below::after {
+    content: '';
+    position: absolute;
+    bottom: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: solid transparent;
+    pointer-events: none;
+}
+.tag-pill-tooltip--below::before { border-width: 7px; border-bottom-color: var(--border); }
+.tag-pill-tooltip--below::after  { border-width: 6px; border-bottom-color: var(--bg-surface); margin-bottom: 1px; }
+
+.tag-pill-tooltip-header {
+    display: flex;
+    align-items: flex-start;
+    gap: .45rem;
+    margin-bottom: .45rem;
+}
+.tag-pill-tooltip-header i {
+    margin-top: 2px;
+    flex-shrink: 0;
+    opacity: .65;
+    color: var(--text-secondary);
+    font-size: .75rem;
+}
+.tag-pill-tooltip-name {
+    color: var(--text-main);
+    font-weight: 600;
+    font-size: .73rem;
+    line-height: 1.35;
+    word-break: break-all;
+}
+.tag-pill-tooltip-desc {
+    margin: 0 0 .55rem;
+    font-size: .72rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.tag-pill-tooltip-galaxy {
+    margin-bottom: .55rem;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    padding: .45rem .55rem;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+.tag-pill-tooltip-meta-row {
+    display: flex;
+    align-items: baseline;
+    gap: .4rem;
+    font-size: .69rem;
+    line-height: 1.4;
+}
+.tag-pill-tooltip-meta-label {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: .6rem;
+    min-width: 68px;
+}
+.tag-pill-tooltip-meta-value { color: var(--text-secondary); word-break: break-word; }
+.tag-pill-tooltip-footer {
+    display: flex;
+    gap: .35rem;
+    flex-wrap: wrap;
+    padding-top: .5rem;
+    border-top: 1px solid var(--border-subtle);
+}
+.tag-pill-tooltip-badge {
+    display: inline-block;
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: .15rem .45rem;
+    border-radius: 3px;
+    line-height: 1.4;
+}
+.tag-pill-tooltip-badge--source { background: var(--brand-dim); color: var(--brand); }
+.tag-pill-tooltip-badge--ns {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}

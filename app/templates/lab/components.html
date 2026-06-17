@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/request-builder.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/regex-tester.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/file-tree.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-pill.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-selector.css') }}">
 {% endblock %}
 
@@ -83,7 +84,7 @@
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import DiffViewer from '/static/js/components/diff-viewer.js'
+                            <pre v-pre class="lab-usage-code">import DiffViewer from '/static/js/components/diff-viewer.js'
 
 &lt;diff-viewer
     left-label="Original"
@@ -132,7 +133,7 @@
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import CodeViewer from '/static/js/components/code-viewer.js'
+                            <pre v-pre class="lab-usage-code">import CodeViewer from '/static/js/components/code-viewer.js'
 
 &lt;!-- JSON with fold tree (auto-detected) --&gt;
 &lt;code-viewer :code="json_str" title="config.json"&gt;&lt;/code-viewer&gt;
@@ -190,7 +191,7 @@
 
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import SmartEditor from '/static/js/components/smart-editor.js'
+                            <pre v-pre class="lab-usage-code">import SmartEditor from '/static/js/components/smart-editor.js'
 
 &lt;!-- v-model, markdown mode --&gt;
 &lt;smart-editor v-model="body" mode="markdown"&gt;&lt;/smart-editor&gt;
@@ -245,7 +246,7 @@ max-height  CSS string   (default: '600px')</pre>
 
                         <details class="lab-usage">
                             <summary>Usage</summary>
-                            <pre class="lab-usage-code">import GraphViewer from '/static/js/components/graph-viewer.js'
+                            <pre v-pre class="lab-usage-code">import GraphViewer from '/static/js/components/graph-viewer.js'
 
 &lt;!-- Simple mode: pan/zoom only --&gt;
 &lt;graph-viewer :config="cfg" :data="dat" mode="simple" height="400px"&gt;&lt;/graph-viewer&gt;
@@ -336,7 +337,7 @@ max-height  CSS string   (default: '600px')</pre>
 
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import ChartViewer from '/static/js/components/chart-viewer.js'
+                            <pre v-pre class="lab-usage-code">import ChartViewer from '/static/js/components/chart-viewer.js'
 
 &lt;!-- All 12 chart types, click-to-detail enabled --&gt;
 &lt;chart-viewer
@@ -403,7 +404,7 @@ max-height  CSS string   (default: '600px')</pre>
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import StatCard from '/static/js/components/stat-card.js'
+                            <pre v-pre class="lab-usage-code">import StatCard from '/static/js/components/stat-card.js'
 // also link css/components/stat-card.css
 
 &lt;!-- Basic --&gt;
@@ -453,7 +454,7 @@ Props:
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import Timeline from '/static/js/components/timeline.js'
+                            <pre v-pre class="lab-usage-code">import Timeline from '/static/js/components/timeline.js'
 // also link css/components/timeline.css
 
 &lt;timeline :items="logs" :loading="fetching" @select="openDetail"&gt;&lt;/timeline&gt;
@@ -527,7 +528,7 @@ Events:
 
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import AnsiTerminal from '/static/js/components/ansi-terminal.js'
+                            <pre v-pre class="lab-usage-code">import AnsiTerminal from '/static/js/components/ansi-terminal.js'
 
 &lt;!-- view mode (default) — read-only log panel --&gt;
 &lt;ansi-terminal
@@ -586,7 +587,7 @@ Events: clear, submit(text)</pre>
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import KeyValue from '/static/js/components/key-value.js'
+                            <pre v-pre class="lab-usage-code">import KeyValue from '/static/js/components/key-value.js'
 
 &lt;key-value :data="job.result" label="Result"&gt;&lt;/key-value&gt;
 
@@ -623,7 +624,7 @@ Colors: string=green, number=orange, boolean=purple, null=muted</pre>
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import RequestBuilder from '/static/js/components/request-builder.js'
+                            <pre v-pre class="lab-usage-code">import RequestBuilder from '/static/js/components/request-builder.js'
 
 &lt;request-builder
     default-url="/api/tags/"
@@ -665,7 +666,7 @@ APT: APT28, APT29 — tlp:white">
                         </div>
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import RegexTester from '/static/js/components/regex-tester.js'
+                            <pre v-pre class="lab-usage-code">import RegexTester from '/static/js/components/regex-tester.js'
 
 &lt;regex-tester
     default-pattern="(error|fail)"
@@ -725,7 +726,7 @@ Match list shows: index, text, position, captured groups</pre>
 
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import FileTree from '/static/js/components/file-tree.js'
+                            <pre v-pre class="lab-usage-code">import FileTree from '/static/js/components/file-tree.js'
 
 // Read mode — navigate, built-in search + collapse/expand
 &lt;file-tree :nodes="tree_nodes" @select="onNodeClick"&gt;&lt;/file-tree&gt;
@@ -799,43 +800,41 @@ Events: select(node)</pre>
                                     placeholder="Search or pick a tag…">
                                 </tag-selector>
 
-                                <p v-if="ts_selected.length > 0" class="ts-output-hint">
-                                    [[ ts_selected.length ]] tag(s) selected
+                                <p v-if="ts_selected && ts_selected.length" class="ts-output-hint">
+                                    [[ ts_selected.length ]] [[ ts_selected.length > 1 ? 'tags' : 'tag' ]] selected
                                 </p>
                             </div>
                         </div>
 
                         <details class="lab-usage">
                             <summary><i class="fas fa-code"></i> Usage</summary>
-                            <pre class="lab-usage-code">import TagSelector from '/static/js/components/tag-selector.js'
-// Also exports: TagCreateCustom, TagCreateVulnerability, detectCVE
+                            <pre v-pre class="lab-usage-code">import TagSelector, { TagCreate, detectCVE } from '/static/js/components/tag-selector.js'
 
-// Basic — all sources
+// Basic picker — all sources, no limit
 &lt;tag-selector v-model="selected_tags"&gt;&lt;/tag-selector&gt;
 
-// Restrict to specific sources
+// Restrict to specific sources and cap at 10
 &lt;tag-selector
     v-model="selected_tags"
     :sources="['custom', 'vulnerability']"
     :max="10"
-    placeholder="Search tags…"&gt;
+    placeholder="Search tags..."&gt;
 &lt;/tag-selector&gt;
 
-// CVE detection utility (mirrors Python detect_cve())
-import { detectCVE } from '/static/js/components/tag-selector.js'
-const { valid, ids } = detectCVE('CVE-2024-12345 and GHSA-xxxx-yyyy-zzzz')
-// ids = ['CVE-2024-12345', 'GHSA-XXXX-YYYY-ZZZZ']
+// Standalone create modal (choose custom or vulnerability)
+&lt;tag-create v-if="show" @created="onCreated" @close="show = false"&gt;&lt;/tag-create&gt;
 
+// CVE detection utility
+const result = detectCVE('CVE-2024-12345 and GHSA-xxxx-yyyy-zzzz')
+// result = { valid: true, ids: ['CVE-2024-12345', 'GHSA-XXXX-YYYY-ZZZZ'] }
+
+API: GET /api/tags/select?search=...&amp;sources=custom,taxonomy&amp;limit=40
 Props:
-  modelValue   Array    Selected tag objects (v-model)
-  sources      Array    ['custom','taxonomy','galaxy','vulnerability'] (default: all)
-  max          Number   Max tags (0 = unlimited)
-  placeholder  String
-  disabled     Boolean
-
-Emits: update:modelValue (Array of tag objects)
-
-Deps: /static/css/components/tag-selector.css</pre>
+  modelValue  Array   (v-model)
+  sources     Array   ['custom','taxonomy','galaxy','vulnerability']
+  max         Number  0 = unlimited
+  placeholder String
+  disabled    Boolean</pre>
                         </details>
                     </section>
 
@@ -863,7 +862,7 @@ Deps: /static/css/components/tag-selector.css</pre>
     import RequestBuilder from '/static/js/components/request-builder.js'
     import RegexTester    from '/static/js/components/regex-tester.js'
     import FileTree       from '/static/js/components/file-tree.js'
-    import TagSelector    from '/static/js/components/tag-selector.js'
+    import TagSelector, { TagCreate } from '/static/js/components/tag-selector.js'
 
 
     const DIFF_LEFT = `{
@@ -1007,7 +1006,7 @@ Deps: /static/css/components/tag-selector.css</pre>
 
     createApp({
         delimiters: ['[[', ']]'],
-        components: { LoadingBar, DiffViewer, CodeViewer, SmartEditor, GraphViewer, ChartViewer, StatCard, Timeline, AnsiTerminal, KeyValue, RequestBuilder, RegexTester, FileTree, TagSelector },
+        components: { LoadingBar, DiffViewer, CodeViewer, SmartEditor, GraphViewer, ChartViewer, StatCard, Timeline, AnsiTerminal, KeyValue, RequestBuilder, RegexTester, FileTree, TagSelector, TagCreate },
 
         setup() {
             const ready          = ref(false)
@@ -1309,7 +1308,6 @@ Deps: /static/css/components/tag-selector.css</pre>
 
             // ── Tag Selector demo ─────────────────────────────────
             const ts_selected     = ref([])
-            console.log('ts_selected', ts_selected)
             const ts_sources_mode = ref('all')
             const ts_active_sources = computed(() => {
                 if (ts_sources_mode.value === 'custom') return ['custom']
