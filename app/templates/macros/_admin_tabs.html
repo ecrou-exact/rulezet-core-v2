@@ -51,7 +51,12 @@
     {% if current_user.is_admin() %}
     <a href="/admin/rulecast/"
        class="admin-tab {% if request.path.startswith('/admin/rulecast') %}is-active{% endif %}">
-        <i class="fas fa-hexagon-nodes"></i><span>RuleCast</span>
+        <img src="{{ url_for('static', filename='image/logo_rulecast.png') }}" width="16" height="16" alt="RuleCast"><span>RuleCast</span>
+    </a>
+    <a href="/admin/docs/" target="_blank" rel="noopener noreferrer"
+       class="admin-tab" title="Developer documentation">
+        <i class="fas fa-book"></i><span>Docs</span>
+        <i class="fas fa-arrow-up-right-from-square" style="font-size:.5rem;opacity:.4;margin-left:2px;"></i>
     </a>
     <a href="/admin/settings"
        class="admin-tab {% if request.path.startswith('/admin/settings') and not request.path.startswith('/admin/settings/database') %}is-active{% endif %}">

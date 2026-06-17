@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, redirect, url_for
+import os
+from flask import Blueprint, render_template, redirect, url_for, send_from_directory, abort
 from flask_login import current_user
 
 from ...core.utils.decorators import require_permission
@@ -8,6 +9,26 @@ from ...features.account.account_core import get_all_roles
 from .admin_core import get_user_or_404, get_role_or_404
 
 admin_blueprint = Blueprint('admin', __name__)
+
+_DOCS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..',
+                 'rulezet-core', 'docs')
+)
+
+
+@admin_blueprint.route('/docs/')
+@require_permission('admin_only')
+def docs():
+    return send_from_directory(_DOCS_DIR, 'index.html')
+
+
+@admin_blueprint.route('/docs/<path:filename>')
+@require_permission('admin_only')
+def docs_asset(filename):
+    safe = os.path.normpath(filename)
+    if safe.startswith('..'):
+        abort(403)
+    return send_from_directory(_DOCS_DIR, safe)
 
 
 @admin_blueprint.route('/', strict_slashes=False)

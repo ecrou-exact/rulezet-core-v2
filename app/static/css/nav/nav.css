@@ -161,6 +161,18 @@
     opacity: 1;
 }
 
+.nav-link-item .nav-icon-img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+    opacity: 0.7;
+    border-radius: 3px;
+    transition: opacity var(--transition);
+}
+.nav-link-item:hover .nav-icon-img,
+.nav-link-item.active .nav-icon-img { opacity: 1; }
+
 .nav-link-item .nav-label {
     opacity: 1;
     transition: opacity var(--transition), width var(--transition-slow);
