@@ -76,14 +76,16 @@ app/
   features/
     account/                 # login, register, profile, verify (/account/verify), email-change verify
     admin/                   # user list, user detail, roles, logs (/admin/*)
-    comments/                # forum + comment system (/comments/)
-      comment.py             # route — comments.view
+    comments/                # comment system (/comments/) — Forum route disabled (404), component kept
+      comment.py             # route — returns 404 (forum removed)
       comment_core.py        # CRUD + reactions + stats + profanity filter (better-profanity)
     site_settings/           # server settings admin page (/admin/settings)
       site_settings.py       # route — admin_only
-        site_settings_core.py  # .env read/write, system info, SMTP/server config, session key regen, packages
+      site_settings_core.py  # .env read/write, system info, SMTP/server config, session key regen, packages
                              # git submodule management: list, validate, add/update/remove (all via background jobs)
     config/                  # user preferences + Theme Studio (/settings)
+      config.py              # route — GET /settings (passes config, builtin_overridable, is_super_admin)
+      config_core.py         # get_user_config(), update_config_core(), theme CRUD, CSS regeneration
     home/
     jobs/                    # background jobs (/jobs/, /jobs/<uuid>)
       jobs.py                # route — jobs.view / jobs.manage
@@ -94,13 +96,19 @@ app/
                              # Job handlers: tags.import_taxonomy, tags.import_galaxy
                              #               tags.import_all_taxonomies, tags.import_all_galaxies
                              # Sources: modules/misp-taxonomies/, modules/misp-galaxy/clusters/
+    connectors/              # connector management (/connectors/)
   core/
     db_class/
+      user.py                # User, Role, RolePermission
+      log.py                 # Log
+      config.py              # UserConfig — nav_position(sidebar|topbar|rail|hidden), toast_duration(seconds 2-10)
+      site_config.py         # SiteConfig — allow_registration, allow_login, email_verification_enabled
       comment.py             # Comment (threading: parent_id/depth/root_id, soft-delete) + CommentReaction
                              # Polymorphic: object_type='rule' + object_id=rule.id for rule comments
       custom_theme.py        # CustomTheme — custom + built-in overrides, is_public visibility
       job.py                 # Job — status, progress, logs, result, duration
       tag.py                 # Tag — source(custom|taxonomy|galaxy|vulnerability), color, icon, is_public
+      connector.py           # Connector — remote instance links, pull/push/bidirectional
       rule/                  # All rule-related models (see "Rule domain" section below)
         __init__.py          # Exports: FormatRule, Rule, RuleTag, RuleCVE, RuleFavoriteUser, RuleEditProposal, RuleHistory
         format_rule.py       # FormatRule — detection rule formats (YARA, Sigma, Suricata…)
@@ -108,19 +116,24 @@ app/
         rule_tag.py          # RuleTag — Rule ↔ Tag many-to-many
         rule_cve.py          # RuleCVE — structured CVE records linked to a rule
         rule_favorite.py     # RuleFavoriteUser — user favorites
-        rule_edit_proposal.py # RuleEditProposal — PR-style edit proposals
-        rule_history.py      # RuleHistory — immutable version snapshots
+        rule_edit_proposal.py # RuleEditProposal — PR-style edit proposals with previous_content/version snapshot
+        rule_history.py      # RuleHistory — immutable version snapshots (use RuleHistory.record())
     utils/
+      decorators.py          # require_permission(key, public=False) — public=True bypasses all auth/perms
+      utils.py               # form_to_dict, get_by_id_or_uuid
+      logger.py              # log_action()
+      mailer.py              # send_verification_email(), send_test_email()
+      permissions.py         # all permission keys (no template_studio keys)
+      nav_registry.py        # nav + search — only file to edit for nav entries
       job_runner.py          # ThreadPoolExecutor daemon, JobContext, register_handler(), enqueue_job()
   api/
     api.py                   # namespace registry
     comment_api.py           # GET/POST /comments, PUT/DELETE /comments/<uuid>, /react, /restore, /stats/user/<id>
-    site_settings_api.py     # GET/POST /server (host+port, triggers os.execv restart)
-                             # GET /system, GET/POST /smtp, POST /smtp/test, POST /session-key
-                             # GET /packages, POST /packages/update, POST /packages/install
-                             # GET/POST /submodules, POST /submodules/update, POST /submodules/remove
     config_api.py            # GET/PATCH /config, GET/POST /config/themes, /themes/vars, /themes/builtin/<key>
                              # PUT/DELETE /themes/<uuid>, PATCH /themes/<uuid>/visibility
+    site_settings_api.py     # GET/POST /server, GET /system, GET/POST /smtp, POST /smtp/test, POST /session-key
+                             # GET /packages, POST /packages/update, POST /packages/install
+                             # GET/POST /submodules, POST /submodules/update, POST /submodules/remove
     jobs_api.py              # GET/POST /jobs, GET /jobs/types, GET/DELETE /jobs/<uuid>
                              # POST /jobs/<uuid>/cancel|pause|resume|retry, POST /jobs/bulk
     tags_api.py              # GET/POST /tags/, GET/PUT/DELETE /tags/<uuid>, POST /tags/bulk
@@ -128,14 +141,13 @@ app/
                              # POST /tags/import/taxonomy, POST /tags/import/galaxy
   templates/
     tags/index.html          # Tag admin page: data-table, source filter chips, import panel, create modal
-    comments/forum.html      # Community Forum page using <comment-thread> Vue component
+    config/settings.html     # User settings page — API: PATCH /api/config/
     site_settings/index.html # includes Python Packages + Git Submodules (add/update/remove via jobs)
     account/verify.html      # email verification code entry page
     account/verify_email_change.html  # email change confirmation page
     jobs/index.html          # Job list with data-table, status filter chips, inline actions
     jobs/detail.html         # Job detail: progress bar, live log panel (2s polling), action buttons
   static/
-    css/comments/comments.css
     css/site_settings/site_settings.css
     css/jobs/jobs.css        # status badges, progress bars, log panel, detail grid
     css/tags/tags.css        # split pill, source chips, import panel, create modal
@@ -147,7 +159,7 @@ app/
       toaster.js             # create_message(text, type, not_hide, link) — link={href,label,target}
       job-monitor.js         # global floating job widget (separate Vue app on #job-monitor-widget)
       components/            # loading-bar.js, pagination.js, data-table.js
-                             # comment-thread.js — recursive Vue component (infinite scroll, reactions, collapse)
+                             # comments/comment-thread.js — recursive Vue component (kept, forum route removed)
                              # tag-pill.js — split pill display (left: dark icon+namespace, right: colored label, YIQ contrast)
     css/components/
       job-monitor.css        # floating widget: .jm-panel, .jm-header, .jm-body, .jm-logs
