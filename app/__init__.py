@@ -179,6 +179,11 @@ def create_app():
     from .core.utils.job_runner import init_runner
     init_runner(app)
 
+    # Load SPDX license list (fetch from GitHub once if file is missing/empty)
+    _root = os.path.normpath(os.path.join(app.root_path, '..'))
+    from .core.utils.licenses import ensure_licenses_file as _ensure_lic
+    _ensure_lic(_root)
+
     # Auto-initialize git submodules if any are empty
     _auto_init_submodules(app)
 

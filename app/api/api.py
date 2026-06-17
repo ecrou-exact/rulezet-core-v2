@@ -42,6 +42,7 @@ from .jobs_api import jobs_ns
 from .database_api import database_ns
 from .tags_api import tags_ns
 from .connectors_api import connectors_ns
+from .licenses_api import licenses_ns
 
 api.add_namespace(account_ns, path="/account")
 api.add_namespace(config_ns, path="/config")
@@ -54,6 +55,7 @@ api.add_namespace(jobs_ns, path="/jobs")
 api.add_namespace(database_ns, path="/database")
 api.add_namespace(tags_ns, path="/tags")
 api.add_namespace(connectors_ns, path="/connectors")
+api.add_namespace(licenses_ns, path="/licenses")
 
 
 # ── Automatic API call logging ────────────────────────────────────────────────

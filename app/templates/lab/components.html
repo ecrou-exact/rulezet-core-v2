@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/file-tree.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-pill.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-selector.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/license-selector.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -838,6 +839,53 @@ Props:
                         </details>
                     </section>
 
+                    <!-- License Selector -->
+                    <section class="lab-card" id="license-selector">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-scale-balanced"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">License Selector</h2>
+                                    <p class="lab-card-desc">
+                                        SPDX license picker — 729 identifiers loaded from disk at startup, filtered client-side.
+                                        Supports keyboard navigation, inline badge, and clear button.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">license-selector.js</code>
+                        </div>
+
+                        <div class="lab-card-body">
+                            <div style="max-width: 420px;">
+                                <license-selector v-model="lic_selected" placeholder="Search SPDX license…"></license-selector>
+                                <p v-if="lic_selected" class="ts-output-hint" style="margin-top:.5rem">
+                                    Selected: <strong>[[ lic_selected ]]</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre v-pre class="lab-usage-code">import LicenseSelector from '/static/js/components/license-selector.js'
+
+// single-value v-model (String)
+&lt;license-selector v-model="form.license" placeholder="Search SPDX license..."&gt;&lt;/license-selector&gt;
+
+// read-only
+&lt;license-selector v-model="rule.license" :disabled="true"&gt;&lt;/license-selector&gt;
+
+// non-clearable
+&lt;license-selector v-model="form.license" :clearable="false"&gt;&lt;/license-selector&gt;
+
+API: GET /api/licenses/?search=...&amp;limit=200
+Props:
+  modelValue  String   (v-model)
+  placeholder String
+  disabled    Boolean
+  clearable   Boolean  (default true)</pre>
+                        </details>
+                    </section>
+
                 </div>
             </div>
         </div>
@@ -863,6 +911,7 @@ Props:
     import RegexTester    from '/static/js/components/regex-tester.js'
     import FileTree       from '/static/js/components/file-tree.js'
     import TagSelector, { TagCreate } from '/static/js/components/tag-selector.js'
+    import LicenseSelector from '/static/js/components/license-selector.js'
 
 
     const DIFF_LEFT = `{
@@ -1006,7 +1055,7 @@ Props:
 
     createApp({
         delimiters: ['[[', ']]'],
-        components: { LoadingBar, DiffViewer, CodeViewer, SmartEditor, GraphViewer, ChartViewer, StatCard, Timeline, AnsiTerminal, KeyValue, RequestBuilder, RegexTester, FileTree, TagSelector, TagCreate },
+        components: { LoadingBar, DiffViewer, CodeViewer, SmartEditor, GraphViewer, ChartViewer, StatCard, Timeline, AnsiTerminal, KeyValue, RequestBuilder, RegexTester, FileTree, TagSelector, TagCreate, LicenseSelector },
 
         setup() {
             const ready          = ref(false)
@@ -1029,6 +1078,7 @@ Props:
                 { id: 'regex-tester',    label: 'Regex Tester',      icon: 'fa-at'                   },
                 { id: 'file-tree',       label: 'File Tree',         icon: 'fa-folder-tree'          },
                 { id: 'tag-selector',    label: 'Tag Selector',      icon: 'fa-tags'                 },
+                { id: 'license-selector', label: 'License Selector',  icon: 'fa-scale-balanced'       },
             ]
 
             // ── Smart Editor demo state ───────────────────────────────
@@ -1308,6 +1358,7 @@ Props:
 
             // ── Tag Selector demo ─────────────────────────────────
             const ts_selected     = ref([])
+            const lic_selected    = ref('')
             const ts_sources_mode = ref('all')
             const ts_active_sources = computed(() => {
                 if (ts_sources_mode.value === 'custom') return ['custom']
@@ -1332,6 +1383,7 @@ Props:
                 term_entries, at_mode, at_log, on_at_submit,
                 kv_data, tree_nodes, demoFetchContent, ft_mode,
                 ts_selected, ts_sources_mode, ts_active_sources,
+                lic_selected,
                 scroll_to,
             }
         }
