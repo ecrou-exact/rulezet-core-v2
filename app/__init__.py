@@ -70,6 +70,9 @@ def create_app():
     from .core.db_class.page_definition import PageDefinition         # noqa: F401
     from .core.db_class.tag import Tag                                # noqa: F401
     from .core.db_class.connector import Connector                    # noqa: F401
+    from .core.db_class.rule import (                                 # noqa: F401
+        FormatRule, Rule, RuleTag, RuleCVE, RuleFavoriteUser, RuleEditProposal, RuleHistory,
+    )
     from .features.connectors import connectors_core                  # noqa: F401 — registers job handlers
 
     @app.context_processor
