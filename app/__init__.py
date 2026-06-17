@@ -16,6 +16,47 @@ migrate = Migrate()
 login_manager = LoginManager()
 sess = Session()
 
+def _auto_init_submodules(app) -> None:
+    """Initialize git submodules in a background thread if any directory is empty."""
+    import os
+    import threading
+    import configparser
+
+    root = os.path.normpath(os.path.join(app.root_path, '..'))
+
+    # Read .gitmodules and check if any registered submodule directory is empty
+    needs_init = False
+    try:
+        gitmodules_path = os.path.join(root, '.gitmodules')
+        if not os.path.exists(gitmodules_path):
+            return
+        cfg = configparser.ConfigParser()
+        cfg.read(gitmodules_path)
+        for section in cfg.sections():
+            if section.startswith('submodule '):
+                path = cfg.get(section, 'path', fallback='')
+                if not path:
+                    continue
+                full_path = os.path.join(root, path)
+                if not os.path.isdir(full_path) or not os.listdir(full_path):
+                    needs_init = True
+                    break
+    except Exception:
+        return
+
+    if not needs_init:
+        return
+
+    def _init():
+        from .features.site_settings.site_settings_core import init_submodules_sync
+        ok, output = init_submodules_sync(root)
+        print(f"[submodules] auto-init {'done' if ok else 'FAILED'}: {output[:300]}")
+
+    thread = threading.Thread(target=_init, daemon=True, name='submodule-auto-init')
+    thread.start()
+    print("[submodules] Empty submodules detected — auto-init started in background")
+
+
 def create_app():
     app = Flask(__name__)
     config_name = os.environ.get("FLASKENV")
@@ -137,6 +178,9 @@ def create_app():
 
     from .core.utils.job_runner import init_runner
     init_runner(app)
+
+    # Auto-initialize git submodules if any are empty
+    _auto_init_submodules(app)
 
     @app.before_request
     def update_last_seen():

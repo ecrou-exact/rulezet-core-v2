@@ -376,6 +376,32 @@ class SubmoduleFile(Resource):
         return {'content': content, 'path': path_str, 'name': target.name}, 200
 
 
+@site_settings_ns.route('/submodules/init')
+class SubmoduleInit(Resource):
+    method_decorators = [api_require_permission('admin_only')]
+
+    def post(self):
+        """Initialize all uninitialized git submodules (git submodule update --init --recursive)."""
+        from ..core.utils.job_runner import enqueue_job
+        uid = current_user.id if current_user.is_authenticated else None
+        job = enqueue_job(
+            'site_settings.submodule_init_all',
+            title='Initialize all submodules',
+            meta={},
+            user_id=uid,
+        )
+        log_action(
+            "Submodule init-all queued",
+            "edit",
+            category=api_category('admin'),
+            level="info",
+            object_type="submodule",
+            is_public=False,
+            meta={'job_id': job.id},
+        )
+        return {'message': 'Init job queued', 'job': job.to_json()}, 202
+
+
 @site_settings_ns.route('/submodules/remove')
 class SubmoduleRemove(Resource):
     method_decorators = [api_require_permission('admin_only')]

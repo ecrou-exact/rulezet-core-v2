@@ -438,6 +438,14 @@
                                             @click="loadSubmodules">
                                         <i class="fas fa-arrows-rotate me-1"></i>Refresh
                                     </button>
+                                    <button class="btn btn-sm btn-outline-warning"
+                                            :disabled="sub_initing"
+                                            @click="initAllSubmodules"
+                                            v-if="hasUninitializedSubmodules">
+                                        <i class="fas fa-circle-down me-1"></i>
+                                        <span v-if="sub_initing">Queuing…</span>
+                                        <span v-else>Init submodules</span>
+                                    </button>
                                     <button class="btn btn-sm btn-outline-primary"
                                             :disabled="sub_updating_all"
                                             @click="updateAllSubmodules"
@@ -719,6 +727,7 @@
             // ── Submodules ────────────────────────────────────────────────────
             const submodules        = ref([])
             const sub_loading       = ref(false)
+            const sub_initing       = ref(false)
             const sub_updating_all  = ref(false)
             const sub_updating_path = ref(null)
             const sub_removing_path = ref(null)
@@ -876,6 +885,10 @@
 
             // ── Submodule functions ───────────────────────────────────────────
 
+            const hasUninitializedSubmodules = computed(() =>
+                submodules.value.some(s => s.status === 'uninitialized')
+            )
+
             async function loadSubmodules() {
                 sub_loading.value = true
                 const res = await apiFetch('/api/site-settings/submodules')
@@ -884,6 +897,20 @@
                     submodules.value = d.submodules || []
                 }
                 sub_loading.value = false
+            }
+
+            async function initAllSubmodules() {
+                if (!confirm('Initialize all uninitialized submodules?\nThis will run: git submodule update --init --recursive')) return
+                sub_initing.value = true
+                const res = await apiFetch('/api/site-settings/submodules/init', 'POST', {})
+                const d   = await res.json()
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS, false, _jobLink(d.job))
+                    setTimeout(loadSubmodules, 2000)
+                } else {
+                    create_message(d.message || 'Failed to queue init', TOAST.ERROR, true)
+                }
+                sub_initing.value = false
             }
 
             async function toggleBrowse(sub) {
@@ -1068,7 +1095,8 @@
                 submodules, sub_loading, sub_updating_all, sub_updating_path, sub_removing_path, sub_adding,
                 show_add_modal, add_url, add_path, add_branch, add_url_err, add_path_err,
                 sub_browse_path, sub_tree_nodes, sub_tree_loading,
-                loadSubmodules, subStatusIcon,
+                loadSubmodules, subStatusIcon, hasUninitializedSubmodules,
+                sub_initing, initAllSubmodules,
                 updateSubmodule, updateAllSubmodules, removeSubmodule,
                 toggleBrowse, onTreeSelect, loadFileContent,
                 openAddModal, closeAddModal, submitAddSubmodule,

@@ -264,6 +264,19 @@ def list_submodules() -> list:
     except Exception:
         pass
 
+    # Cross-check: if the directory has only a .git placeholder (no real content),
+    # mark as uninitialized regardless of what git status reports.
+    for m in modules.values():
+        full_path = os.path.join(root, m['path'])
+        if not os.path.isdir(full_path):
+            m['status'] = 'uninitialized'
+            continue
+        entries = os.listdir(full_path)
+        # A freshly `git submodule init`-ed but not yet cloned dir contains only a '.git' file
+        real_files = [e for e in entries if e != '.git']
+        if not real_files:
+            m['status'] = 'uninitialized'
+
     return list(modules.values())
 
 
@@ -292,6 +305,92 @@ def validate_new_submodule(url: str, path: str, branch: str) -> tuple[bool, str]
 # ── Submodule job handlers ────────────────────────────────────────────────────
 
 from ...core.utils.job_runner import register_handler
+
+
+def init_submodules_sync(root: str) -> tuple:
+    """
+    Initialize and checkout all git submodules.
+    Handles the case where the internal .git/modules repo exists but the
+    working tree is empty (git submodule update --init alone doesn't re-checkout).
+    Safe to call outside Flask request context.
+    Returns (ok: bool, output: str).
+    """
+    lines = []
+    try:
+        # Step 1: standard init + clone
+        r1 = subprocess.run(
+            ['git', 'submodule', 'update', '--init', '--recursive'],
+            capture_output=True, text=True, timeout=300, cwd=root,
+        )
+        lines.append((r1.stdout + r1.stderr).strip())
+
+        # Step 2: force checkout any submodule whose working tree is still empty.
+        # This handles repos that were cloned into .git/modules but never checked out.
+        import configparser
+        gitmodules_path = os.path.join(root, '.gitmodules')
+        if os.path.exists(gitmodules_path):
+            cfg = configparser.ConfigParser()
+            cfg.read(gitmodules_path)
+            for section in cfg.sections():
+                if not section.startswith('submodule '):
+                    continue
+                path = cfg.get(section, 'path', fallback='')
+                if not path:
+                    continue
+                full_path = os.path.join(root, path)
+                entries = os.listdir(full_path) if os.path.isdir(full_path) else []
+                real_files = [e for e in entries if e != '.git']
+                if real_files:
+                    continue  # already has content
+
+                # Locate the internal git dir
+                name = section[len('submodule '):].strip('"')
+                git_dir = os.path.join(root, '.git', 'modules', name)
+                if not os.path.isdir(git_dir):
+                    # try path-based name (e.g. modules/misp-galaxy)
+                    git_dir = os.path.join(root, '.git', 'modules', path)
+
+                if not os.path.isdir(git_dir):
+                    lines.append(f"[skip] no .git/modules entry for {path}")
+                    continue
+
+                lines.append(f"[checkout] forcing working tree for {path}")
+                r2 = subprocess.run(
+                    ['git', '--git-dir', git_dir, '--work-tree', full_path,
+                     'checkout', 'HEAD', '--', '.'],
+                    capture_output=True, text=True, timeout=120, cwd=root,
+                )
+                lines.append((r2.stdout + r2.stderr).strip())
+
+        output = '\n'.join(l for l in lines if l)
+        return True, output
+    except Exception as e:
+        return False, '\n'.join(lines) + '\n' + str(e)
+
+
+@register_handler('site_settings.submodule_init_all')
+def _submodule_init_all_handler(ctx, meta):
+    from flask import current_app
+    root = os.path.normpath(os.path.join(current_app.root_path, '..'))
+
+    ctx.log("Step 1/2 — git submodule update --init --recursive…")
+    ctx.update_progress(5)
+    ctx.checkpoint()
+
+    ok, output = init_submodules_sync(root)
+
+    ctx.update_progress(95)
+    for line in output.splitlines():
+        if line.strip():
+            ctx.log(line, level='info' if ok else 'warning')
+
+    ctx.update_progress(100)
+
+    if not ok:
+        raise Exception("Submodule init failed — see logs above")
+
+    ctx.log("All submodules initialized and checked out.", level='success')
+    return {'ok': ok}
 
 
 @register_handler('site_settings.submodule_update')
