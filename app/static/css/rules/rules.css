@@ -1,0 +1,106 @@
+/*---RULES_TABS---*/
+.rules-tabs-bar {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    padding: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex-shrink: 0;
+}
+.rules-tabs-bar::-webkit-scrollbar { display: none; }
+
+.rules-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem 1.1rem;
+    font-size: .83rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: color .15s, border-color .15s, background .15s;
+    white-space: nowrap;
+    cursor: pointer;
+    background: transparent;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+.rules-tab:hover { color: var(--text-main); background: var(--bg-elevated); }
+.rules-tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
+.rules-tab i { font-size: .72rem; opacity: .8; }
+.rules-tab.rules-tab--lock i.fa-lock { font-size: .65rem; color: var(--text-muted); margin-left: .15rem; }
+
+/*---CREATE_SUBTABS---*/
+.rules-subtabs-bar {
+    display: flex;
+    gap: .35rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.rules-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .9rem;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1.5px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-body);
+    transition: all .15s;
+    white-space: nowrap;
+}
+.rules-subtab:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 6%, var(--bg-body));
+}
+.rules-subtab.is-active {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 12%, var(--bg-body));
+    color: var(--brand);
+    font-weight: 600;
+}
+.rules-subtab i { font-size: .72rem; }
+
+/*---PLACEHOLDER (empty sections)---*/
+.rules-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+.rules-placeholder-icon {
+    font-size: 2.5rem;
+    opacity: .25;
+}
+.rules-placeholder-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.rules-placeholder-desc {
+    font-size: .85rem;
+    color: var(--text-muted);
+    max-width: 380px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/*---DARK_MODE---*/
+[data-bs-theme="dark"] .rules-tab:hover { background: var(--bg-hover); }

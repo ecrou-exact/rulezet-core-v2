@@ -104,6 +104,38 @@ PERMISSIONS: dict[str, dict] = {
         'icon':        'fa-plug',
     },
 
+    # ── Rules ────────────────────────────────────────────────────────────────
+    'rules.view': {
+        'label':       'View rules',
+        'description': 'Access the rule list and rule detail pages.',
+        'group':       'Rules',
+        'icon':        'fa-shield-virus',
+    },
+    'rules.create': {
+        'label':       'Create rules',
+        'description': 'Submit new rules (manual, import from GitHub or file).',
+        'group':       'Rules',
+        'icon':        'fa-circle-plus',
+    },
+    'rules.edit': {
+        'label':       'Edit rules',
+        'description': 'Edit rule content, metadata, and propose changes.',
+        'group':       'Rules',
+        'icon':        'fa-pen-to-square',
+    },
+    'rules.delete': {
+        'label':       'Delete rules',
+        'description': 'Soft-delete rules and manage the trash.',
+        'group':       'Rules',
+        'icon':        'fa-trash',
+    },
+    'rules.manage': {
+        'label':       'Manage rules',
+        'description': 'Admin-level actions: verify, hard delete, bulk operations.',
+        'group':       'Rules',
+        'icon':        'fa-sliders',
+    },
+
     # ── Comments ─────────────────────────────────────────────────────────────
     'comments.view': {
         'label':       'View comments',

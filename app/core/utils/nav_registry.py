@@ -57,6 +57,15 @@ NAV: list[dict] = [
         'permission': 'admin_any',
     },
 
+    # ── Rules (public list, login required to create) ─────────────────────────
+    {
+        'group':      'Rules',
+        'label':      'Rules',
+        'icon':       'fa-shield-virus',
+        'href':       '/rules/',
+        'permission': 'public',
+    },
+
     # ── Community (public — accessible without login) ──────────────────────────
     {
         'group':      'Community',

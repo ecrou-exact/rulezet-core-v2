@@ -1,0 +1,52 @@
+{#
+  _rules_tabs.html — Horizontal tab navigation for all /rules/* pages.
+  Auto-included by base.html when the current path starts with /rules.
+
+  Tab visibility rules:
+    List     → always visible (public, even anonymous)
+    Create   → visible always; redirects to login if anonymous (lock icon hint)
+    Manage   → visible only to admins or users with rules.manage
+    Trash    → visible only to admins or users with rules.delete
+
+  Never edit the tab logic here directly — add permissions in permissions.py
+  and update this file to reflect them.
+#}
+<div class="rules-tabs-bar">
+
+    {# ── List — public ── #}
+    <a href="/rules/"
+       class="rules-tab {% if request.path == '/rules/' or (request.path.startswith('/rules/') and not request.path.startswith('/rules/create') and not request.path.startswith('/rules/manage') and not request.path.startswith('/rules/trash')) %}is-active{% endif %}">
+        <i class="fas fa-list"></i><span>List</span>
+    </a>
+
+    {# ── Create — login required; show lock hint when anonymous ── #}
+    {% if current_user.is_authenticated %}
+    <a href="/rules/create"
+       class="rules-tab {% if request.path.startswith('/rules/create') %}is-active{% endif %}">
+        <i class="fas fa-circle-plus"></i><span>Create</span>
+    </a>
+    {% else %}
+    <a href="/account/login?next=/rules/create"
+       class="rules-tab rules-tab--lock"
+       title="Sign in to create rules">
+        <i class="fas fa-circle-plus"></i><span>Create</span><i class="fas fa-lock"></i>
+    </a>
+    {% endif %}
+
+    {# ── Manage — admins or rules.manage ── #}
+    {% if current_user.is_authenticated and (current_user.is_admin() or current_user.has_permission('rules.manage')) %}
+    <a href="/rules/manage"
+       class="rules-tab {% if request.path.startswith('/rules/manage') %}is-active{% endif %}">
+        <i class="fas fa-sliders"></i><span>Manage</span>
+    </a>
+    {% endif %}
+
+    {# ── Trash — admins or rules.delete ── #}
+    {% if current_user.is_authenticated and (current_user.is_admin() or current_user.has_permission('rules.delete')) %}
+    <a href="/rules/trash"
+       class="rules-tab {% if request.path.startswith('/rules/trash') %}is-active{% endif %}">
+        <i class="fas fa-trash"></i><span>Trash</span>
+    </a>
+    {% endif %}
+
+</div>

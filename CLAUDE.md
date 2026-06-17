@@ -97,6 +97,19 @@ app/
                              #               tags.import_all_taxonomies, tags.import_all_galaxies
                              # Sources: modules/misp-taxonomies/, modules/misp-galaxy/clusters/
     connectors/              # connector management (/connectors/)
+    rules/                   # detection rule management (/rules/)
+      rules.py               # route — GET /rules/ (public), GET /rules/create[/<sub>] (login required)
+                             # PLATFORMS list defined here (windows, linux, macos, network, cloud…)
+      rules_core.py          # get_formats() — active FormatRule objects ordered by name
+                             # create_rule_core(data, user_id) — creates Rule + RuleTag + RuleCVE
+                             #   + RuleHistory.record() + log_action; returns (rule, msg)
+      form.py                # RuleForm(FlaskForm, Meta.csrf=False) — all Rule fields with validators
+                             # validate_title (uniqueness), validate_version (X.Y regex),
+                             # validate_format_id (DB check), validate_references_raw (URL per line),
+                             # validate_cve_ids (CVE/GCVE/GHSA/PYSEC/GSD/CERT-Bund/Cisco/RHSA/
+                             #   MSRC/CERT-FR/RUSTSEC/SNYK/INTEL-SA), validate_mitre_attack (T1234/T1234.001)
+                             # helpers: parsed_references(), parsed_platforms(), parsed_mitre(),
+                             #          parsed_cve_ids(), parsed_tag_ids()
   core/
     db_class/
       user.py                # User, Role, RolePermission
@@ -126,6 +139,8 @@ app/
       permissions.py         # all permission keys (no template_studio keys)
       nav_registry.py        # nav + search — only file to edit for nav entries
       job_runner.py          # ThreadPoolExecutor daemon, JobContext, register_handler(), enqueue_job()
+      licenses.py            # ensure_licenses_file(root), get_licenses(), search_licenses(q, limit=30)
+                             # Loads from app/data/licenses.txt at startup; fetches from GitHub once if missing
   api/
     api.py                   # namespace registry
     comment_api.py           # GET/POST /comments, PUT/DELETE /comments/<uuid>, /react, /restore, /stats/user/<id>
@@ -139,6 +154,9 @@ app/
     tags_api.py              # GET/POST /tags/, GET/PUT/DELETE /tags/<uuid>, POST /tags/bulk
                              # GET /tags/namespaces, GET /tags/import/sources
                              # POST /tags/import/taxonomy, POST /tags/import/galaxy
+    licenses_api.py          # GET /licenses/?search=&limit= → {licenses, total} — any authenticated user
+    rules_api.py             # GET /rules/formats — list active FormatRule objects (to_json_light)
+                             # POST /rules/ — create rule (validates via RuleForm, calls create_rule_core)
   templates/
     tags/index.html          # Tag admin page: data-table, source filter chips, import panel, create modal
     config/settings.html     # User settings page — API: PATCH /api/config/
@@ -147,6 +165,13 @@ app/
     account/verify_email_change.html  # email change confirmation page
     jobs/index.html          # Job list with data-table, status filter chips, inline actions
     jobs/detail.html         # Job detail: progress bar, live log panel (2s polling), action buttons
+    rules/index.html         # Public rule list (accessible without login)
+    rules/create.html        # Rule creation form — 3 sub-tabs: manual / github / file
+                             # manual tab: full Vue form with all Rule fields, smart editors,
+                             # tag-selector, cve-selector, license-selector, version stepper
+                             # submit → POST /api/rules/ → on 201 redirect to /rules/
+    macros/_rules_tabs.html  # Permission-gated tab bar auto-injected by base.html on /rules/* paths
+                             # (same pattern as _admin_tabs.html)
   static/
     css/site_settings/site_settings.css
     css/jobs/jobs.css        # status badges, progress bars, log panel, detail grid
@@ -154,6 +179,12 @@ app/
     css/themes/theme.css     # built-in theme overrides (static)
     css/themes/custom-themes.css  # auto-generated from DB (regenerated on every theme change)
     css/core.css             # includes .admin-tabs-bar / .admin-tab (inner nav for all admin pages)
+    css/rules/rules.css      # .rules-subtabs-bar, .rules-subtab, .rules-placeholder
+    css/rules/rule-form.css  # two-col layout (.rf-layout), cards (.rf-card), fields (.rf-field),
+                             # format grid, version stepper, badge selects, platform chips,
+                             # MITRE chips, ref list, mode toggle (text/markdown), error highlight
+                             # (.rf-field--highlight flash animation), .rf-error (banner style),
+                             # .rf-submit-bar (sticky), .rf-vis-toggle, .rf-vuln-hint
     js/
       constants.js           # TOAST, CSRF_TOKEN, apiFetch()
       toaster.js             # create_message(text, type, not_hide, link) — link={href,label,target}
@@ -161,8 +192,16 @@ app/
       components/            # loading-bar.js, pagination.js, data-table.js
                              # comments/comment-thread.js — recursive Vue component (kept, forum route removed)
                              # tag-pill.js — split pill display (left: dark icon+namespace, right: colored label, YIQ contrast)
+                             # license-selector.js — SPDX license picker (729 identifiers, client-side filter)
+                             #   props: modelValue(String), placeholder, disabled, clearable(default true)
+                             # cve-selector.js — unified vulnerability selector
+                             #   combines existing vulnerability tags + direct CVE/GHSA/PYSEC/… input
+                             #   v-model: Array of {kind:'tag'|'cve', ...}; raw IDs display as tag-pills
+                             #   no "All" chip; "Add <ID>" shortcut when query matches CVE pattern
     css/components/
       job-monitor.css        # floating widget: .jm-panel, .jm-header, .jm-body, .jm-logs
+      license-selector.css   # .ls-root, .ls-input-wrap, .ls-dropdown, .ls-item, .ls-current-badge
+      cve-selector.css       # .cvs-root, .cvs-selected, .cvs-search-wrap, .cvs-dropdown, .cvs-item--add
 
 tests/<feature>/test_<feature>.py
 ```
@@ -329,13 +368,57 @@ Every page follows this skeleton — no exceptions:
 
 Check `static/js/components/` and `static/css/` before writing anything new.
 
-| Need | Component |
-|---|---|
-| Table with sort/filter/pagination | `<data-table>` — never build from scratch |
-| Chart | Apache ECharts via `chart-<type>.js` component |
-| Feedback to user | `create_message(text, TOAST.SUCCESS)` — never `display_toast()` in templates |
-| Loading state | `<loading-bar>` |
-| Pagination | `<pagination>` |
+| Need | Component | Required CSS |
+|---|---|---|
+| Table with sort/filter/pagination | `<data-table>` — never build from scratch | — |
+| Chart | Apache ECharts via `chart-<type>.js` | — |
+| Feedback to user | `create_message(text, TOAST.SUCCESS)` | — |
+| Loading state | `<loading-bar>` | — |
+| Pagination | `<pagination>` | — |
+| Tag display | `<tag-pill>` | `css/components/tag-pill.css` |
+| Tag search + create | `<tag-selector>` | `tag-pill.css` + `tag-selector.css` |
+| CVE / vulnerability | `<cve-selector>` | `tag-pill.css` + `cve-selector.css` |
+| SPDX license picker | `<license-selector>` | `css/components/license-selector.css` |
+| Code / markdown editor | `<smart-editor>` | `css/components/smart-editor.css` |
+
+### `<tag-selector>` props
+```
+modelValue   Array    v-model — array of tag objects
+sources      Array    filter: ['custom','taxonomy','galaxy','vulnerability']
+max          Number   max selections (0 = unlimited)
+placeholder  String
+disabled     Boolean
+create-type  String   '' = show type chooser | 'custom' | 'vuln'
+                      Use 'custom' to skip chooser and open directly on custom form
+```
+
+### `<cve-selector>` props
+```
+modelValue   Array    v-model — [{kind:'tag', ...tagObj} | {kind:'cve', id:'CVE-2024-1234'}]
+placeholder  String
+disabled     Boolean
+```
+On submit, split: `vuln_uuids = entries.filter(e=>e.kind==='tag').map(e=>e.uuid)` and
+`cve_ids = entries.filter(e=>e.kind==='cve').map(e=>e.id)`.
+
+### `<license-selector>` props
+```
+modelValue   String   v-model — SPDX identifier
+placeholder  String
+disabled     Boolean
+clearable    Boolean  default true
+```
+Loads 729 SPDX identifiers from `GET /api/licenses/`. Data stored in `app/data/licenses.txt`,
+loaded once at startup via `app/core/utils/licenses.py:ensure_licenses_file()`.
+
+### `<smart-editor>` props
+```
+modelValue   String   v-model
+mode         String   'text' | 'markdown' | 'code'
+language     String   syntax language when mode='code' (default 'javascript')
+min-height   String   CSS value (default '200px')
+```
+For description fields use a mode toggle: `<button @click="desc_mode='text'">` / `'markdown'`.
 
 ---
 
@@ -616,3 +699,43 @@ Use the existing polymorphic `Comment` model — **no separate table needed**:
 Comment(object_type='rule', object_id=rule.id, ...)
 Comment.query.filter_by(object_type='rule', object_id=rule.id, is_active=True)
 ```
+
+---
+
+## Rules feature — permissions & nav
+
+Permission keys (in `permissions.py`):
+```
+rules.view    — list and read rules (public route — no login required)
+rules.create  — submit new rules
+rules.edit    — edit existing rules
+rules.delete  — soft-delete rules
+rules.manage  — admin-level: all rules, bulk actions, trash
+```
+
+Nav entry (in `nav_registry.py`):
+```python
+{'group': 'Rules', 'label': 'Rules', 'icon': 'fa-shield-virus',
+ 'href': '/rules/', 'permission': 'public'}
+```
+
+Tab macro (`templates/macros/_rules_tabs.html`) auto-injected by `base.html` on all `/rules/*` paths:
+- **List** — always visible
+- **Create** — shows lock icon + redirects to login if anonymous
+- **Manage** — only if `is_admin() or has_permission('rules.manage')`
+- **Trash** — only if `is_admin() or has_permission('rules.delete')`
+
+### Rule creation form (`/rules/create`)
+
+- Requires login (`require_permission(None)`) — anonymous users are redirected to login with `?next=`
+- 3 sub-tabs: **manual** (full Vue form), **github** (placeholder), **file** (placeholder)
+- Form validation via `RuleForm` (WTForms, `Meta.csrf=False`) — API receives JSON, not multipart
+- On submit: `POST /api/rules/` → 201 + `{uuid}` → redirect to `/rules/`
+- On error: server returns `{errors: {field: msg}}` → scroll to first error field + flash highlight
+
+### `rule-form.css` error conventions
+- `.rf-error` — banner with red left-border, background tint, FA warning icon via `::before`
+- `.rf-field--highlight` — `@keyframes rf-field-flash` animation (scroll-to target, 1.6s)
+- `.rf-submit-error` — compact inline badge for the sticky submit bar
+- `.rf-label-hint` — `?` tooltip; parent cards must have `overflow: visible` (not `hidden`)
+  so `::after` pseudo-elements can escape the card boundary

@@ -62,6 +62,9 @@ function normalizeCVE(raw) {
 const TagCreate = {
     name: 'TagCreate',
     emits: ['created', 'close'],
+    props: {
+        initial: { type: String, default: '' },   // '' = show chooser | 'custom' | 'vuln'
+    },
     template: `
 <div class="ts-modal-backdrop" @mousedown.self="$emit('close')">
   <div class="ts-modal" role="dialog" aria-modal="true">
@@ -154,8 +157,8 @@ const TagCreate = {
 
     <!-- footer -->
     <div class="ts-modal-footer">
-      <button class="ts-btn ts-btn-ghost" @click="step ? step = '' : $emit('close')">
-        {{ step ? 'Back' : 'Cancel' }}
+      <button class="ts-btn ts-btn-ghost" @click="(step && !initial) ? step = '' : $emit('close')">
+        {{ (step && !initial) ? 'Back' : 'Cancel' }}
       </button>
       <button v-if="step === 'custom'"
               class="ts-btn ts-btn-primary"
@@ -180,7 +183,7 @@ const TagCreate = {
   </div>
 </div>`,
     setup(props, { emit }) {
-        const step     = ref('')   // '' | 'custom' | 'vuln'
+        const step     = ref(props.initial || '')   // '' | 'custom' | 'vuln'
         const busy     = ref(false)
         const err      = ref('')
         const name_ref = ref(null)
@@ -295,6 +298,7 @@ const TagSelector = {
         max:         { type: Number,  default: 0 },
         placeholder: { type: String,  default: 'Search tags…' },
         disabled:    { type: Boolean, default: false },
+        createType:  { type: String,  default: '' },  // '' = chooser | 'custom' | 'vuln'
     },
     template: `
 <div class="ts-root" :class="disabled ? 'ts-root--disabled' : ''">
@@ -385,6 +389,7 @@ const TagSelector = {
     <Teleport to="body">
         <tag-create
             v-if="show_create"
+            :initial="createType"
             @created="onCreated"
             @close="show_create = false">
         </tag-create>

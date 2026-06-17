@@ -194,6 +194,11 @@
             {% include 'macros/_admin_tabs.html' %}
             {% endif %}
 
+            {# ── Rules inner tabs — auto-injected on /rules/* paths ── #}
+            {% if request.path.startswith('/rules') %}
+            {% include 'macros/_rules_tabs.html' %}
+            {% endif %}
+
             {% block content %}{% endblock %}
         </main>
 

@@ -82,6 +82,7 @@ def create_app():
     from .features.jobs.jobs import jobs_blueprint
     from .features.tags.tags import tags_blueprint
     from .features.connectors.connectors import connectors_blueprint
+    from .features.rules.rules import rules_blueprint
     app.register_blueprint(home_blueprint, url_prefix="/")
     app.register_blueprint(account_blueprint, url_prefix="/account")
     app.register_blueprint(config_blueprint, url_prefix="/")
@@ -91,6 +92,7 @@ def create_app():
     app.register_blueprint(jobs_blueprint, url_prefix="/jobs")
     app.register_blueprint(tags_blueprint, url_prefix="/tags")
     app.register_blueprint(connectors_blueprint, url_prefix="/connectors")
+    app.register_blueprint(rules_blueprint, url_prefix="/rules")
 
     from .api.api import api_blueprint
     csrf.exempt(api_blueprint)

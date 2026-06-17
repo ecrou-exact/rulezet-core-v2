@@ -1,0 +1,832 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rules/rules.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rules/rule-form.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/smart-editor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-pill.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-selector.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/license-selector.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/cve-selector.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('rules.index') }}">Rules</a></li>
+                        <li class="breadcrumb-item active">Create</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">
+                    <i class="fas fa-circle-plus me-2" style="font-size:.85em;opacity:.7;"></i>Create rule
+                </h1>
+            </div>
+        </div>
+
+        {# ── Sub-tab bar ── #}
+        <div class="rules-subtabs-bar">
+            <a href="{{ url_for('rules.create', sub='manual') }}"
+               class="rules-subtab {% if active_sub == 'manual' %}is-active{% endif %}">
+                <i class="fas fa-pen-to-square"></i>Manual
+            </a>
+            <a href="{{ url_for('rules.create', sub='github') }}"
+               class="rules-subtab {% if active_sub == 'github' %}is-active{% endif %}">
+                <i class="fab fa-github"></i>Import from GitHub
+            </a>
+            <a href="{{ url_for('rules.create', sub='file') }}"
+               class="rules-subtab {% if active_sub == 'file' %}is-active{% endif %}">
+                <i class="fas fa-file-arrow-up"></i>Import from file
+            </a>
+        </div>
+
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {# MANUAL FORM                                                     #}
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {% if active_sub == 'manual' %}
+        <form @submit.prevent="submitRule" novalidate>
+        <div class="rf-layout">
+
+            {# ── LEFT COLUMN ── #}
+            <div>
+
+                {# FORMAT #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-shapes"></i></span>
+                        <h3 class="rf-card-title">Format</h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field" id="rf-format-section">
+                            <label class="rf-label" @click="focusField('format')">
+                                Detection format <span class="rf-required">*</span>
+                                <i class="rf-label-hint" data-tip="The language/format of this rule.&#10;YARA for malware, Sigma for SIEM events,&#10;Suricata for network traffic, etc.">?</i>
+                            </label>
+                            <div v-if="formats.length" class="rf-format-grid">
+                                <div v-for="fmt in formats" :key="fmt.uuid"
+                                     class="rf-format-card"
+                                     :class="form.format_uuid === fmt.uuid ? 'is-active' : ''"
+                                     @click="form.format_uuid = fmt.uuid; form.content_language = fmt.name">
+                                    <i :class="'fas ' + (fmt.icon || 'fa-shield-halved') + ' rf-format-icon'"
+                                       :style="fmt.color ? 'color:' + fmt.color : ''"></i>
+                                    <span class="rf-format-name">[[ fmt.name.toUpperCase() ]]</span>
+                                    <span class="rf-format-ext">.[[ fmt.file_extension || '?' ]]</span>
+                                </div>
+                            </div>
+                            <p v-else class="rf-hint">
+                                No formats configured yet.
+                                <a href="/admin/settings">Add formats</a> first.
+                            </p>
+                            <p v-if="errors.format_uuid" class="rf-error">[[ errors.format_uuid ]]</p>
+                        </div>
+                    </div>
+                </div>
+
+                {# IDENTITY #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-fingerprint"></i></span>
+                        <h3 class="rf-card-title">Identity</h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field">
+                            <label class="rf-label" for="f-title">
+                                Title <span class="rf-required">*</span>
+                                <i class="rf-label-hint" data-tip="Unique, human-readable name for this rule.&#10;Use a descriptive name that reflects what the rule detects.">?</i>
+                            </label>
+                            <input id="f-title" ref="field_title" v-model="form.title"
+                                   class="rf-input" :class="errors.title ? 'is-invalid' : ''"
+                                   placeholder="e.g. Detect Mimikatz credential dumping" maxlength="512" />
+                            <p v-if="errors.title" class="rf-error">[[ errors.title ]]</p>
+                        </div>
+
+                        <div class="rf-row">
+                            <div class="rf-field">
+                                <label class="rf-label" for="f-version">
+                                    Version
+                                    <i class="rf-label-hint" data-tip="Semantic version of this rule.&#10;Use +/− to increment major or minor number.">?</i>
+                                </label>
+                                <div class="rf-version-stepper" id="f-version">
+                                    <button type="button" class="rf-version-btn" @click="decVersion" title="Decrement version">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                    <span class="rf-version-display">[[ form.version ]]</span>
+                                    <button type="button" class="rf-version-btn" @click="incVersion" title="Increment version">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="rf-field">
+                                <label class="rf-label" for="f-orig-uuid">
+                                    Original UUID
+                                    <i class="rf-label-hint" data-tip="If this rule was imported from another instance,&#10;paste its original UUID here to track provenance.">?</i>
+                                </label>
+                                <input id="f-orig-uuid" ref="field_original_uuid"
+                                       v-model="form.original_uuid"
+                                       class="rf-input" :class="errors.original_uuid ? 'is-invalid' : ''"
+                                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" maxlength="36" />
+                                <p v-if="errors.original_uuid" class="rf-error">[[ errors.original_uuid ]]</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# CONTENT #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-code"></i></span>
+                        <h3 class="rf-card-title">Rule content <span class="rf-required" style="font-size:.75rem;">*</span></h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field" id="rf-content-section">
+                            <label class="rf-label" @click="$refs.smart_content && $refs.smart_content.$el.querySelector('textarea,div[contenteditable]')?.focus()">
+                                Content
+                                <i class="rf-label-hint" data-tip="The raw rule body in the selected format.&#10;Supports syntax highlighting for YARA, Sigma, Suricata…">?</i>
+                            </label>
+                            <smart-editor ref="smart_content"
+                                          v-model="form.content"
+                                          mode="code"
+                                          :language="form.content_language || 'plaintext'"
+                                          min-height="260px">
+                            </smart-editor>
+                            <p v-if="errors.content" class="rf-error">[[ errors.content ]]</p>
+                        </div>
+                    </div>
+                </div>
+
+                {# DESCRIPTION #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-align-left"></i></span>
+                        <h3 class="rf-card-title">Description</h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.25rem;">
+                                <label class="rf-label" style="margin:0" @click="$refs.smart_desc && $refs.smart_desc.$el.querySelector('textarea,div[contenteditable]')?.focus()">
+                                    Description
+                                    <i class="rf-label-hint" data-tip="Explain what this rule detects, why it matters,&#10;and any relevant context.">?</i>
+                                </label>
+                                <div class="rf-mode-toggle">
+                                    <button type="button"
+                                            class="rf-mode-btn"
+                                            :class="desc_mode === 'text' ? 'is-active' : ''"
+                                            @click="desc_mode = 'text'">
+                                        <i class="fas fa-align-left"></i> Text
+                                    </button>
+                                    <button type="button"
+                                            class="rf-mode-btn"
+                                            :class="desc_mode === 'markdown' ? 'is-active' : ''"
+                                            @click="desc_mode = 'markdown'">
+                                        <i class="fab fa-markdown"></i> Markdown
+                                    </button>
+                                </div>
+                            </div>
+                            <smart-editor ref="smart_desc"
+                                          v-model="form.description"
+                                          :mode="desc_mode"
+                                          min-height="140px">
+                            </smart-editor>
+                        </div>
+
+                        <div class="rf-field">
+                            <label class="rf-label" for="f-fp" @click="$refs.field_fp?.focus()">
+                                False positives
+                                <i class="rf-label-hint" data-tip="Known conditions that may trigger this rule&#10;without actually being malicious. Plain text.">?</i>
+                            </label>
+                            <textarea id="f-fp" ref="field_fp" v-model="form.false_positives"
+                                      class="rf-textarea" rows="3"
+                                      placeholder="e.g. Legitimate admin tools running from unusual paths…"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                {# CLASSIFICATION #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-layer-group"></i></span>
+                        <h3 class="rf-card-title">Classification</h3>
+                    </div>
+                    <div class="rf-card-body">
+
+                        {# Status #}
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Status
+                                <i class="rf-label-hint" data-tip="stable → production-ready&#10;test → being evaluated&#10;experimental → proof-of-concept, may have FPs&#10;deprecated → no longer maintained">?</i>
+                            </label>
+                            <div class="rf-badge-select">
+                                <span v-for="s in statuses" :key="s.val"
+                                      class="rf-badge-opt"
+                                      :class="form.status === s.val ? 'is-active' : ''"
+                                      :data-val="s.val"
+                                      @click="form.status = s.val">
+                                    [[ s.label ]]
+                                </span>
+                            </div>
+                        </div>
+
+                        {# Severity #}
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Severity
+                                <i class="rf-label-hint" data-tip="Impact level if this rule fires.&#10;critical/high → respond immediately&#10;medium → investigate&#10;low/info → for awareness only">?</i>
+                            </label>
+                            <div class="rf-badge-select">
+                                <span v-for="s in severities" :key="s.val"
+                                      class="rf-badge-opt"
+                                      :class="form.severity === s.val ? 'is-active' : ''"
+                                      :data-val="s.val"
+                                      @click="form.severity = (form.severity === s.val ? '' : s.val)">
+                                    [[ s.label ]]
+                                </span>
+                            </div>
+                        </div>
+
+                        {# Confidence #}
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Confidence
+                                <i class="rf-label-hint" data-tip="How certain are you that a match&#10;really indicates malicious activity?">?</i>
+                            </label>
+                            <div class="rf-badge-select">
+                                <span v-for="c in confidences" :key="c.val"
+                                      class="rf-badge-opt rf-conf"
+                                      :class="form.confidence === c.val ? 'is-active' : ''"
+                                      :data-val="c.val"
+                                      @click="form.confidence = (form.confidence === c.val ? '' : c.val)">
+                                    [[ c.label ]]
+                                </span>
+                            </div>
+                        </div>
+
+                        {# Platforms #}
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Platforms
+                                <i class="rf-label-hint" data-tip="Target operating systems or environments&#10;where this rule applies.">?</i>
+                            </label>
+                            <div class="rf-platform-grid">
+                                <span v-for="p in all_platforms" :key="p"
+                                      class="rf-platform-chip"
+                                      :class="form.platforms.includes(p) ? 'is-active' : ''"
+                                      @click="togglePlatform(p)">
+                                    <i :class="platformIcon(p)"></i>[[ p ]]
+                                </span>
+                            </div>
+                        </div>
+
+                        {# MITRE ATT&CK #}
+                        <div class="rf-field">
+                            <label class="rf-label" @click="$refs.field_mitre?.focus()">
+                                MITRE ATT&amp;CK
+                                <i class="rf-label-hint" data-tip="Technique IDs this rule covers.&#10;Format: T1059 or T1059.001 (sub-technique).&#10;Press Enter or comma to add.">?</i>
+                            </label>
+                            <div class="rf-mitre-wrap">
+                                <div class="rf-mitre-row" v-if="form.mitre_attack.length">
+                                    <span v-for="tid in form.mitre_attack" :key="tid" class="rf-mitre-chip">
+                                        [[ tid ]]
+                                        <button type="button" @click="removeMitre(tid)"><i class="fas fa-xmark"></i></button>
+                                    </span>
+                                </div>
+                                <div v-else class="rf-mitre-empty">No techniques added yet</div>
+                                <div class="rf-mitre-add-row">
+                                    <input ref="field_mitre" v-model="mitre_input"
+                                           class="rf-input" style="flex:1"
+                                           placeholder="T1059 or T1059.001"
+                                           @keydown.enter.prevent="addMitre"
+                                           @keydown.comma.prevent="addMitre" />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="addMitre">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                <p v-if="mitre_error" class="rf-error">[[ mitre_error ]]</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {# TAGS & CVEs #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-tags"></i></span>
+                        <h3 class="rf-card-title">Tags &amp; Vulnerabilities</h3>
+                    </div>
+                    <div class="rf-card-body">
+
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Tags
+                                <i class="rf-label-hint" data-tip="Taxonomy, galaxy, or custom tags&#10;to categorize this rule. Pick from existing tags&#10;or create a new one inline.">?</i>
+                            </label>
+                            <tag-selector v-model="form.tag_objects"
+                                          :sources="['custom','taxonomy','galaxy']"
+                                          create-type="custom"
+                                          placeholder="Search or pick tags…">
+                            </tag-selector>
+                        </div>
+
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Vulnerability IDs
+                                <i class="rf-label-hint" data-tip="Two ways to add:&#10;① Search an existing vulnerability tag&#10;② Type a valid ID (CVE-2024-1234,&#10;   GHSA-xxxx, PYSEC-2024-xx…) and&#10;   press Enter to add it directly.">?</i>
+                            </label>
+                            <cve-selector v-model="form.vuln_entries"
+                                          placeholder="Search or type CVE-2024-1234…">
+                            </cve-selector>
+                            <div class="rf-vuln-hint">
+                                <span><i class="fas fa-magnifying-glass"></i> Search existing vulnerability tags</span>
+                                <span class="rf-vuln-hint-sep">·</span>
+                                <span><i class="fas fa-keyboard"></i> Type <code>CVE-2024-1234</code> + <kbd>Enter</kbd> to add an ID directly</span>
+                            </div>
+                            <p v-if="errors.cve_ids" class="rf-error">[[ errors.cve_ids ]]</p>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>{# /left #}
+
+            {# ── RIGHT COLUMN ── #}
+            <div>
+
+                {# AUTHORSHIP #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-user-pen"></i></span>
+                        <h3 class="rf-card-title">Authorship</h3>
+                    </div>
+                    <div class="rf-card-body">
+
+                        <div class="rf-field">
+                            <label class="rf-label" for="f-author" @click="$refs.field_author?.focus()">
+                                Author
+                                <i class="rf-label-hint" data-tip="Original author of the rule (name, handle, or email).&#10;Can differ from the submitter on this platform.">?</i>
+                            </label>
+                            <input id="f-author" ref="field_author" v-model="form.author"
+                                   class="rf-input" placeholder="e.g. John Doe, @handle" maxlength="256" />
+                        </div>
+
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                License
+                                <i class="rf-label-hint" data-tip="SPDX identifier for the license&#10;governing use and redistribution of this rule.">?</i>
+                            </label>
+                            <license-selector v-model="form.license" placeholder="Search SPDX license…"></license-selector>
+                        </div>
+
+                        <div class="rf-field">
+                            <label class="rf-label" for="f-source" @click="$refs.field_source?.focus()">
+                                Source
+                                <i class="rf-label-hint" data-tip="Origin of this rule: GitHub repo URL,&#10;threat intelligence feed name, vendor name, etc.">?</i>
+                            </label>
+                            <input id="f-source" ref="field_source" v-model="form.source"
+                                   class="rf-input" placeholder="e.g. github.com/SigmaHQ/sigma" maxlength="256" />
+                        </div>
+
+                        <div class="rf-field">
+                            <label class="rf-label" for="f-creation-date" @click="$refs.field_creation_date?.focus()">
+                                Rule creation date
+                                <i class="rf-label-hint" data-tip="Date the rule was originally authored&#10;(may differ from import date). Format: YYYY-MM-DD.">?</i>
+                            </label>
+                            <input id="f-creation-date" ref="field_creation_date"
+                                   v-model="form.creation_date"
+                                   class="rf-input" type="date" />
+                        </div>
+
+                    </div>
+                </div>
+
+                {# REFERENCES #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-link"></i></span>
+                        <h3 class="rf-card-title">References</h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field">
+                            <label class="rf-label" @click="$refs.field_ref?.focus()">
+                                URLs
+                                <i class="rf-label-hint" data-tip="Links to blog posts, advisories, or reports&#10;related to this rule. One URL per line or press Enter.">?</i>
+                            </label>
+                            <div class="rf-ref-list" v-if="form.references.length">
+                                <div v-for="(url, idx) in form.references" :key="idx" class="rf-ref-item">
+                                    <i class="fas fa-link" style="color:var(--text-muted);font-size:.7rem;flex-shrink:0"></i>
+                                    <span class="rf-ref-url" :title="url">[[ url ]]</span>
+                                    <button type="button" class="rf-ref-remove" @click="removeRef(idx)">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:.4rem;align-items:center;">
+                                <input ref="field_ref" v-model="ref_input"
+                                       class="rf-input" style="flex:1"
+                                       placeholder="https://…"
+                                       @keydown.enter.prevent="addRef" />
+                                <button type="button" class="btn btn-outline-secondary btn-sm" @click="addRef">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <p v-if="ref_error" class="rf-error">[[ ref_error ]]</p>
+                        </div>
+                    </div>
+                </div>
+
+                {# VISIBILITY #}
+                <div class="rf-card">
+                    <div class="rf-card-header">
+                        <span class="rf-card-icon"><i class="fas fa-eye"></i></span>
+                        <h3 class="rf-card-title">Visibility</h3>
+                    </div>
+                    <div class="rf-card-body">
+                        <div class="rf-field">
+                            <label class="rf-label">
+                                Visibility
+                                <i class="rf-label-hint" data-tip="Public rules are visible to all users.&#10;Private rules are only visible to you and admins.">?</i>
+                            </label>
+                            <div class="rf-vis-toggle" :class="form.is_public ? 'is-public' : ''"
+                                 @click="form.is_public = !form.is_public">
+                                <i :class="form.is_public ? 'fas fa-globe' : 'fas fa-lock'"></i>
+                                [[ form.is_public ? 'Public — visible to everyone' : 'Private — only you and admins' ]]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>{# /right #}
+
+        </div>{# /rf-layout #}
+
+        {# ── SUBMIT BAR ── #}
+        <div class="rf-submit-bar">
+            <div class="rf-submit-info">
+                <strong>[[ form.title || 'Untitled rule' ]]</strong>
+                <span v-if="form.format_uuid">
+                    · [[ formatName(form.format_uuid) ]]
+                </span>
+                · v[[ form.version ]]
+                · <span :style="statusColor(form.status)">[[ form.status ]]</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+                <span v-if="submit_error" class="rf-submit-error">
+                    <i class="fas fa-triangle-exclamation"></i>[[ submit_error ]]
+                </span>
+                <a href="{{ url_for('rules.index') }}" class="btn btn-outline-secondary btn-sm">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary btn-sm" :disabled="submitting">
+                    <i class="fas fa-circle-plus me-1"></i>
+                    <span v-if="submitting"><i class="fas fa-spinner fa-spin me-1"></i>Creating…</span>
+                    <span v-else>Create rule</span>
+                </button>
+            </div>
+        </div>
+
+        </form>
+        {% endif %}{# /manual #}
+
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {# GITHUB / FILE placeholders                                     #}
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {% if active_sub == 'github' %}
+        <div class="rules-placeholder">
+            <div class="rules-placeholder-icon"><i class="fab fa-github"></i></div>
+            <p class="rules-placeholder-title">Import from GitHub</p>
+            <p class="rules-placeholder-desc">Import rules directly from a GitHub repository by URL or path. Coming soon.</p>
+        </div>
+        {% elif active_sub == 'file' %}
+        <div class="rules-placeholder">
+            <div class="rules-placeholder-icon"><i class="fas fa-file-arrow-up"></i></div>
+            <p class="rules-placeholder-title">Import from file</p>
+            <p class="rules-placeholder-desc">Upload a rule file or archive (.yar, .yml, .zip…) to bulk-import rules. Coming soon.</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, reactive, computed, onMounted } = Vue
+    import { TOAST, apiFetch }           from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar     from '/static/js/components/loading-bar.js'
+    import SmartEditor    from '/static/js/components/smart-editor.js'
+    import LicenseSelector from '/static/js/components/license-selector.js'
+    import TagSelector, { TagCreate } from '/static/js/components/tag-selector.js'
+    import CveSelector from '/static/js/components/cve-selector.js'
+
+    // ── Static data from server ───────────────────────────────────────────────
+    const FORMATS   = {{ formats | tojson }}
+    const PLATFORMS = {{ platforms | tojson }}
+
+    const STATUSES    = [
+        { val: 'stable',       label: 'Stable' },
+        { val: 'test',         label: 'Test' },
+        { val: 'experimental', label: 'Experimental' },
+        { val: 'deprecated',   label: 'Deprecated' },
+    ]
+    const SEVERITIES  = [
+        { val: 'critical', label: 'Critical' },
+        { val: 'high',     label: 'High' },
+        { val: 'medium',   label: 'Medium' },
+        { val: 'low',      label: 'Low' },
+        { val: 'info',     label: 'Info' },
+    ]
+    const CONFIDENCES = [
+        { val: 'high',   label: 'High' },
+        { val: 'medium', label: 'Medium' },
+        { val: 'low',    label: 'Low' },
+    ]
+
+    const PLATFORM_ICONS = {
+        windows: 'fa-brands fa-windows',
+        linux:   'fa-brands fa-linux',
+        macos:   'fa-brands fa-apple',
+        network: 'fas fa-network-wired',
+        cloud:   'fas fa-cloud',
+        android: 'fa-brands fa-android',
+        ios:     'fa-brands fa-apple',
+        container: 'fa-brands fa-docker',
+        office365:  'fas fa-envelope',
+        'azure-ad': 'fas fa-shield-halved',
+    }
+
+    const STATUS_COLORS = {
+        stable:       'color:#27ae60',
+        test:         'color:#2980b9',
+        experimental: 'color:#e67e22',
+        deprecated:   'color:#7f8c8d',
+    }
+
+    const MITRE_RE = /^T\d{4}(\.\d{3})?$/i
+    const URL_RE   = /^https?:\/\/[^\s]+$/
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, SmartEditor, LicenseSelector, TagSelector, TagCreate, CveSelector },
+        setup() {
+            const page_is_loading = ref(false)
+
+            // ── Form state ────────────────────────────────────────────────────
+            const form = reactive({
+                format_uuid:    '',
+                content_language: 'plaintext',
+                title:          '',
+                version:        '1.0',
+                original_uuid:  '',
+                status:         'stable',
+                severity:       '',
+                confidence:     '',
+                platforms:      [],
+                mitre_attack:   [],
+                content:        '',
+                description:    '',
+                false_positives:'',
+                author:         '',
+                license:        '',
+                source:         '',
+                creation_date:  '',
+                is_public:      true,
+                references:     [],
+                tag_objects:    [],
+                vuln_entries:   [],   // { kind:'tag'|'cve', ... }
+            })
+
+            const desc_mode     = ref('text')
+            const errors        = reactive({})
+            const submitting    = ref(false)
+            const submit_error  = ref('')
+
+            // MITRE input
+            const mitre_input = ref('')
+            const mitre_error = ref('')
+
+            // Reference input
+            const ref_input   = ref('')
+            const ref_error   = ref('')
+
+            // ── Formats ───────────────────────────────────────────────────────
+            const formats = ref(FORMATS)
+
+            function formatName(uuid) {
+                const f = formats.value.find(f => f.uuid === uuid)
+                return f ? f.name.toUpperCase() : ''
+            }
+
+            // ── Version stepper ───────────────────────────────────────────────
+            function parseVersion(v) {
+                const parts = String(v || '1.0').split('.')
+                return { major: parseInt(parts[0]) || 1, minor: parseInt(parts[1]) || 0 }
+            }
+            function fmtVersion(major, minor) {
+                return major + '.' + minor
+            }
+            function incVersion() {
+                let { major, minor } = parseVersion(form.version)
+                minor++
+                if (minor > 9) { major++; minor = 0 }
+                form.version = fmtVersion(major, minor)
+            }
+            function decVersion() {
+                let { major, minor } = parseVersion(form.version)
+                if (minor > 0) {
+                    minor--
+                } else if (major > 1) {
+                    major--; minor = 9
+                }
+                form.version = fmtVersion(major, minor)
+            }
+
+            // ── Platforms ─────────────────────────────────────────────────────
+            const all_platforms = ref(PLATFORMS)
+            function togglePlatform(p) {
+                const idx = form.platforms.indexOf(p)
+                if (idx === -1) form.platforms.push(p)
+                else form.platforms.splice(idx, 1)
+            }
+            function platformIcon(p) { return PLATFORM_ICONS[p] || 'fas fa-desktop' }
+
+            // ── MITRE ATT&CK ──────────────────────────────────────────────────
+            function addMitre() {
+                const val = mitre_input.value.trim().replace(/,/g, '').toUpperCase()
+                if (!val) return
+                if (!MITRE_RE.test(val)) {
+                    mitre_error.value = 'Format must be T1059 or T1059.001'
+                    return
+                }
+                if (form.mitre_attack.includes(val)) {
+                    mitre_error.value = 'Already added'
+                    return
+                }
+                mitre_error.value = ''
+                form.mitre_attack.push(val)
+                mitre_input.value = ''
+            }
+            function removeMitre(tid) {
+                const idx = form.mitre_attack.indexOf(tid)
+                if (idx !== -1) form.mitre_attack.splice(idx, 1)
+            }
+
+            // ── References ────────────────────────────────────────────────────
+            function addRef() {
+                const url = ref_input.value.trim()
+                if (!url) return
+                if (!URL_RE.test(url)) {
+                    ref_error.value = 'Must be a valid URL starting with http(s)://'
+                    return
+                }
+                if (form.references.includes(url)) {
+                    ref_error.value = 'Already added'
+                    return
+                }
+                ref_error.value = ''
+                form.references.push(url)
+                ref_input.value = ''
+            }
+            function removeRef(idx) { form.references.splice(idx, 1) }
+
+            // ── Misc helpers ──────────────────────────────────────────────────
+            function statusColor(s) { return STATUS_COLORS[s] || '' }
+            function focusField(id) {
+                const el = document.getElementById(id)
+                if (el) { const inp = el.querySelector('input,textarea'); if (inp) inp.focus() }
+            }
+
+            // Map error keys → DOM element IDs or data-field attributes
+            const ERROR_FIELD_MAP = {
+                format_uuid:     'rf-format-section',
+                title:           'f-title',
+                content:         'rf-content-section',
+                version:         'f-version',
+                original_uuid:   'f-orig-uuid',
+                author:          'f-author',
+                source:          'f-source',
+                creation_date:   'f-creation-date',
+                false_positives: 'f-fp',
+                cve_ids:         'rf-vuln-section',
+                references_raw:  'rf-ref-section',
+                mitre_attack:    'rf-mitre-section',
+            }
+
+            function scrollToError(errorKeys) {
+                // Find the first error that maps to a DOM element
+                for (const key of errorKeys) {
+                    const id = ERROR_FIELD_MAP[key] || null
+                    const el = id ? document.getElementById(id) : null
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        // highlight the field briefly
+                        el.classList.add('rf-field--highlight')
+                        setTimeout(() => el.classList.remove('rf-field--highlight'), 1800)
+                        // try to focus an input inside
+                        const input = el.querySelector('input,textarea')
+                        if (input) input.focus()
+                        return
+                    }
+                }
+                // fallback: scroll to top of form
+                document.querySelector('.rf-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+
+            // ── Submit ────────────────────────────────────────────────────────
+            async function submitRule() {
+                Object.keys(errors).forEach(k => delete errors[k])
+                submit_error.value = ''
+
+                // Client-side guards — set error then scroll to field
+                const clientErrors = {}
+                if (!form.format_uuid)    clientErrors.format_uuid = 'Please select a format.'
+                if (!form.title.trim())   clientErrors.title       = 'Title is required.'
+                if (!form.content.trim()) clientErrors.content     = 'Rule content is required.'
+
+                if (Object.keys(clientErrors).length) {
+                    Object.assign(errors, clientErrors)
+                    await Vue.nextTick()
+                    scrollToError(Object.keys(clientErrors))
+                    return
+                }
+
+                submitting.value = true
+
+                // Collect tag UUIDs (taxonomy/galaxy/custom) from tag-selector
+                const tag_uuids  = form.tag_objects.map(t => t.uuid)
+                // Split vuln_entries into tag UUIDs and raw CVE strings
+                const vuln_uuids = form.vuln_entries.filter(e => e.kind === 'tag').map(e => e.uuid)
+                const cve_ids    = form.vuln_entries.filter(e => e.kind === 'cve').map(e => e.id)
+
+                const payload = {
+                    format_uuid:     form.format_uuid,
+                    title:           form.title.trim(),
+                    content:         form.content,
+                    description:     form.description,
+                    version:         form.version,
+                    status:          form.status,
+                    severity:        form.severity || null,
+                    confidence:      form.confidence || null,
+                    platforms:       JSON.stringify(form.platforms),
+                    mitre_attack:    JSON.stringify(form.mitre_attack),
+                    references_raw:  form.references.join('\n'),
+                    false_positives: form.false_positives,
+                    author:          form.author,
+                    license:         form.license,
+                    source:          form.source,
+                    creation_date:   form.creation_date,
+                    is_public:       form.is_public,
+                    original_uuid:   form.original_uuid,
+                    tag_ids:         [...tag_uuids, ...vuln_uuids].join(','),
+                    cve_ids:         cve_ids.join(','),
+                }
+
+                const res = await apiFetch('/api/rules/', 'POST', payload)
+                submitting.value = false
+
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message('Rule created successfully', TOAST.SUCCESS)
+                    window.location.href = '/rules/'
+                } else {
+                    const d = await res.json()
+                    if (d.errors) {
+                        Object.assign(errors, d.errors)
+                        submit_error.value = 'Fix the highlighted errors and try again.'
+                        await Vue.nextTick()
+                        scrollToError(Object.keys(d.errors))
+                    } else {
+                        submit_error.value = d.message || 'An error occurred.'
+                    }
+                }
+            }
+
+            onMounted(async () => {
+                page_is_loading.value = true
+            })
+
+            return {
+                page_is_loading, message_list,
+                form, errors, submitting, submit_error,
+                desc_mode,
+                formats, all_platforms, statuses: STATUSES, severities: SEVERITIES, confidences: CONFIDENCES,
+                mitre_input, mitre_error,
+                ref_input, ref_error,
+                incVersion, decVersion,
+                togglePlatform, platformIcon,
+                addMitre, removeMitre,
+                addRef, removeRef,
+                formatName, statusColor, focusField,
+                submitRule,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

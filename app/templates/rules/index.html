@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rules/rules.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Rules</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title"><i class="fas fa-shield-virus me-2" style="font-size:.85em;opacity:.7;"></i>Rules</h1>
+            </div>
+            <div class="page-actions">
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('rules.create') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i>New rule
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ── Page body ── #}
+        <div class="page-body">
+            <div class="rules-placeholder">
+                <div class="rules-placeholder-icon"><i class="fas fa-shield-virus"></i></div>
+                <p class="rules-placeholder-title">Rule list</p>
+                <p class="rules-placeholder-desc">Detection rules will appear here. Coming soon.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            onMounted(async () => {
+                page_is_loading.value = true
+            })
+            return { message_list, page_is_loading }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}
