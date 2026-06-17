@@ -1,0 +1,566 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/table/data-table.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/pagination/pagination.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/admin/users.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Users</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Users</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            {# ── User settings — requires admin.site_config ── #}
+            <div v-if="can_site_config" class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <div style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--brand-dim);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:.72rem;flex-shrink:0;">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0" style="font-size:.85rem;font-weight:600;">User settings</h6>
+                            <p class="text-muted mb-0" style="font-size:.75rem;">Admin-only configuration for user access.</p>
+                        </div>
+                        <div class="ms-auto">
+                            <span v-if="settings_saved" class="text-success small">
+                                <i class="fas fa-circle-check me-1"></i>Saved
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="users-setting-row">
+                        <div class="users-setting-info">
+                            <span class="users-setting-label">
+                                <i class="fas fa-user-plus me-1" style="font-size:.75rem;color:var(--text-muted);"></i>
+                                Public registration
+                            </span>
+                            <span class="text-muted small d-block" style="padding-left:1.25rem;">
+                                Allow anyone to create an account from the login page. When disabled, only admins can create accounts.
+                            </span>
+                        </div>
+                        <button class="users-setting-toggle"
+                                :class="{ active: allow_registration }"
+                                @click="toggleSetting('allow_registration')"
+                                :title="allow_registration ? 'Enabled — click to disable' : 'Disabled — click to enable'">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </button>
+                    </div>
+
+                    <div class="users-setting-row">
+                        <div class="users-setting-info">
+                            <span class="users-setting-label">
+                                <i class="fas fa-lock me-1" style="font-size:.75rem;color:var(--text-muted);"></i>
+                                Admin-only login
+                            </span>
+                            <span class="text-muted small d-block" style="padding-left:1.25rem;">
+                                When enabled, only admins can log in. Non-admin accounts are blocked at the login page.
+                            </span>
+                        </div>
+                        <button class="users-setting-toggle"
+                                :class="{ active: !allow_login }"
+                                @click="toggleSetting('allow_login')"
+                                :title="allow_login ? 'All users can log in — click to restrict' : 'Admin-only — click to open'">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </button>
+                    </div>
+
+                    <div class="users-setting-row">
+                        <div class="users-setting-info">
+                            <span class="users-setting-label">
+                                <i class="fas fa-envelope-circle-check me-1" style="font-size:.75rem;color:var(--text-muted);"></i>
+                                Email verification
+                            </span>
+                            <span class="text-muted small d-block" style="padding-left:1.25rem;">
+                                Require new accounts to verify their email before logging in.
+                                Requires SMTP to be configured in
+                                <a href="/admin/settings" style="color:var(--brand);">Server Settings</a>.
+                                Unverified accounts are deleted after 30 minutes.
+                            </span>
+                        </div>
+                        <button class="users-setting-toggle"
+                                :class="{ active: email_verification_enabled }"
+                                @click="toggleSetting('email_verification_enabled')"
+                                :title="email_verification_enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </button>
+                    </div>
+
+                    <div class="users-setting-row">
+                        <div class="users-setting-info">
+                            <span class="users-setting-label">
+                                <i class="fas fa-cloud-sun me-1" style="font-size:.75rem;color:var(--text-muted);"></i>
+                                Weather &amp; time widget
+                            </span>
+                            <span class="text-muted small d-block" style="padding-left:1.25rem;">
+                                Show a live weather and local time chip in the topbar for all users.
+                                Uses Open-Meteo (no API key) and the browser's geolocation.
+                            </span>
+                        </div>
+                        <button class="users-setting-toggle"
+                                :class="{ active: weather_widget_enabled }"
+                                @click="toggleSetting('weather_widget_enabled')"
+                                :title="weather_widget_enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <data-table
+                ref="table_ref"
+                fetch-url="/api/account/users"
+                mode="manage"
+                :columns="columns"
+                :can-create="can_create"
+                :can-edit="can_edit"
+                :can-delete="can_delete"
+                :can-view="true"
+                :bulk-actions="bulk_actions"
+                default-view="table"
+                :initial-per-page="25"
+                @create="handleCreate"
+                @edit="handleEdit"
+                @delete="handleDelete"
+                @view="handleView"
+                @bulk-action="handleBulkAction">
+
+                {# ── Avatar ── #}
+                <template #cell-_avatar="{ item }">
+                    <user-avatar
+                        :first-name="item.first_name"
+                        :last-name="item.last_name"
+                        :avatar-url="item.avatar_filename ? '/static/uploads/avatars/' + item.avatar_filename : null"
+                        size="sm">
+                    </user-avatar>
+                </template>
+
+                {# ── Name ── #}
+                <template #cell-name="{ item }">
+                    <div style="min-width:0;">
+                        <div class="text-truncate" style="font-weight:500;font-size:.875rem;color:var(--text-main);">
+                            [[ item.first_name ]] [[ item.last_name ]]
+                        </div>
+                        <div v-if="item.username" class="text-truncate" style="font-size:.75rem;color:var(--text-muted);">
+                            @[[ item.username ]]
+                        </div>
+                    </div>
+                </template>
+
+                {# ── Role ── #}
+                <template #cell-role="{ item }">
+                    <div class="d-flex align-items-center gap-2">
+                        <role-badge
+                            :name="item.role_name || 'No role'"
+                            :color="item.role_color || 'gray'"
+                            :icon="item.role_icon || 'fa-user'"
+                            :href="roleHref(item)">
+                        </role-badge>
+                        <select v-if="can_edit"
+                                class="user-role-select"
+                                :value="item.role_id"
+                                @change.stop="changeRole(item, $event.target.value)"
+                                @click.stop>
+                            <option v-for="r in roles_list" :key="r.id" :value="r.id">[[ r.name ]]</option>
+                            <option v-if="!item.role_id" :value="null">No role</option>
+                        </select>
+                    </div>
+                </template>
+
+                {# ── Joined ── #}
+                <template #cell-created="{ item }">
+                    <span style="font-size:.8rem;color:var(--text-secondary);">
+                        [[ formatDate(item.created_at) ]]
+                    </span>
+                </template>
+
+                {# ── Connected ── #}
+                <template #cell-connected="{ item }">
+                    <div class="user-status-cell">
+                        <span class="user-status-dot" :class="item.is_connected ? 'user-status-dot--online' : 'user-status-dot--offline'"></span>
+                        <span class="user-status-label" :class="item.is_connected ? 'user-status-label--online' : ''">
+                            [[ item.is_connected ? 'Online' : 'Offline' ]]
+                        </span>
+                        <button v-if="item.is_connected && can_edit"
+                                class="user-action-icon user-action-icon--danger"
+                                title="Force disconnect"
+                                @click.stop="disconnectUser(item)">
+                            <i class="fas fa-plug-circle-xmark"></i>
+                        </button>
+                    </div>
+                </template>
+
+                {# ── Verified ── #}
+                <template #cell-verified="{ item }">
+                    <button v-if="can_edit"
+                            class="user-verified-toggle"
+                            :class="item.is_verified ? 'user-verified-toggle--on' : 'user-verified-toggle--off'"
+                            :title="item.is_verified ? 'Verified — click to revoke' : 'Not verified — click to approve'"
+                            @click.stop="toggleVerified(item)">
+                        <i :class="item.is_verified ? 'fas fa-shield-check' : 'fas fa-shield-xmark'"></i>
+                        [[ item.is_verified ? 'Verified' : 'Pending' ]]
+                    </button>
+                    <span v-else
+                          class="user-verified-toggle"
+                          :class="item.is_verified ? 'user-verified-toggle--on' : 'user-verified-toggle--off'"
+                          style="cursor:default;pointer-events:none;">
+                        <i :class="item.is_verified ? 'fas fa-shield-check' : 'fas fa-shield-xmark'"></i>
+                        [[ item.is_verified ? 'Verified' : 'Pending' ]]
+                    </span>
+                </template>
+
+                {# ── Card body ── #}
+                <template #card-body="{ item }">
+                    <div class="user-card-body">
+                        <user-avatar
+                            :first-name="item.first_name"
+                            :last-name="item.last_name"
+                            :avatar-url="item.avatar_filename ? '/static/uploads/avatars/' + item.avatar_filename : null"
+                            size="lg">
+                        </user-avatar>
+                        <div class="user-card-info">
+                            <div class="text-truncate" style="font-weight:600;font-size:.9rem;">[[ item.first_name ]] [[ item.last_name ]]</div>
+                            <div class="text-truncate" style="font-size:.78rem;color:var(--text-muted);">[[ item.email ]]</div>
+                            <div style="display:flex;align-items:center;gap:.4rem;margin-top:.35rem;flex-wrap:wrap;">
+                                <span class="user-role-badge" :class="item.is_admin ? 'user-role-badge--admin' : ''">[[ item.role_name || 'No role' ]]</span>
+                                <span class="user-status-dot" :class="item.is_connected ? 'user-status-dot--online' : 'user-status-dot--offline'" :title="item.is_connected ? 'Online' : 'Offline'"></span>
+                                <i v-if="!item.is_verified" class="fas fa-shield-xmark" style="font-size:.7rem;color:#f97316;" title="Not verified"></i>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                {# ── Expanded row ── #}
+                <template #expand="{ item }">
+                    <div class="dt-expand-grid">
+                        <div v-if="item.bio" class="dt-expand-field" style="grid-column:1/-1;">
+                            <label>Bio</label>
+                            <span style="white-space:pre-wrap;">[[ item.bio ]]</span>
+                        </div>
+                        <div class="dt-expand-field">
+                            <label>Email</label><span>[[ item.email || '—' ]]</span>
+                        </div>
+                        <div v-if="item.username" class="dt-expand-field">
+                            <label>Username</label><span>@[[ item.username ]]</span>
+                        </div>
+                        <div v-if="item.job_title" class="dt-expand-field">
+                            <label>Job title</label><span>[[ item.job_title ]]</span>
+                        </div>
+                        <div v-if="item.company" class="dt-expand-field">
+                            <label>Company</label><span>[[ item.company ]]</span>
+                        </div>
+                        <div v-if="item.location" class="dt-expand-field">
+                            <label>Location</label><span>[[ item.location ]]</span>
+                        </div>
+                        <div class="dt-expand-field">
+                            <label>Joined</label><span>[[ formatDate(item.created_at) ]]</span>
+                        </div>
+                        <div class="dt-expand-field">
+                            <label>Last seen</label>
+                            <span>[[ item.last_seen_at ? formatDate(item.last_seen_at) : 'Never' ]]</span>
+                        </div>
+                        <div class="dt-expand-field">
+                            <label>User ID</label>
+                            <span style="font-family:var(--font-mono);font-size:.75rem;">#[[ item.id ]]</span>
+                        </div>
+                    </div>
+                </template>
+
+            </data-table>
+
+        </div>
+    </div>
+
+    {# ── Modals ── #}
+    <modal-edit-user
+        :visible="show_edit_modal"
+        :user="selected_user"
+        :roles="roles_list"
+        @close="show_edit_modal = false"
+        @saved="onSaved">
+    </modal-edit-user>
+
+    <modal-confirm
+        :visible="show_delete_modal"
+        title="Delete user"
+        :message="'Delete ' + (selected_user ? selected_user.first_name + ' ' + selected_user.last_name : '') + '? This cannot be undone.'"
+        confirm-label="Delete"
+        variant="danger"
+        :loading="delete_loading"
+        @confirm="onDeleteConfirm"
+        @cancel="show_delete_modal = false">
+    </modal-confirm>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list, create_message, display_toast } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar    from '/static/js/components/loading-bar.js'
+    import UserAvatar    from '/static/js/components/user-avatar.js'
+    import DataTable     from '/static/js/components/table/data-table.js'
+    import ModalEditUser from '/static/js/components/modals/modal-edit-user.js'
+    import ModalConfirm  from '/static/js/components/modals/modal-confirm.js'
+    import BaseModal     from '/static/js/components/modals/base-modal.js'
+    import RoleBadge     from '/static/js/components/role-badge.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, UserAvatar, DataTable, ModalEditUser, ModalConfirm, BaseModal, RoleBadge },
+
+        setup() {
+            const page_is_loading    = ref(false)
+            const table_ref          = ref(null)
+            const can_create      = hasPerm('users.edit')
+            const can_edit        = hasPerm('users.edit')
+            const can_delete      = hasPerm('users.delete')
+            const can_site_config = hasPerm('admin.site_config')
+
+            function roleHref(item) {
+                return hasPerm('admin.roles') && item.role_id
+                    ? `/admin/roles/${item.role_id}`
+                    : null
+            }
+
+            const allow_registration          = ref({{ 'true' if allow_registration else 'false' }})
+            const allow_login                 = ref({{ 'true' if allow_login else 'false' }})
+            const email_verification_enabled  = ref({{ 'true' if email_verification_enabled else 'false' }})
+            const weather_widget_enabled      = ref({{ 'true' if weather_widget_enabled else 'false' }})
+            const settings_saved              = ref(false)
+            let   saved_timer        = null
+
+            // ── Modal state ───────────────────────────────────────────────
+            const show_edit_modal   = ref(false)
+            const show_delete_modal = ref(false)
+            const selected_user     = ref(null)
+            const roles_list        = ref([])
+            const delete_loading    = ref(false)
+
+            onMounted(async () => {
+                if (can_edit) await fetchRoles()
+                page_is_loading.value = true
+            })
+
+            async function fetchRoles() {
+                try {
+                    const res = await apiFetch('/api/account/roles')
+                    if (res.ok) roles_list.value = await res.json()
+                } catch { /* silent */ }
+            }
+
+            // ── Columns ──────────────────────────────────────────────────
+            const columns = [
+                { key: '_avatar',   label: '',          sortable: false, truncate: false, width: '52px'  },
+                { key: 'name',      label: 'Name',      sortable: true,  truncate: true,  width: '180px' },
+                { key: 'email',     label: 'Email',     sortable: true,  truncate: true,  width: '180px' },
+                { key: 'role',      label: 'Role',      sortable: false, truncate: false, width: '120px' },
+                { key: 'connected', label: 'Status',    sortable: false, truncate: false, width: '140px' },
+                { key: 'verified',  label: 'Verified',  sortable: false, truncate: false, width: '120px' },
+                { key: 'created',   label: 'Joined',    sortable: true,  truncate: false, width: '110px' },
+            ]
+
+            const bulk_actions = can_edit ? [
+                { key: 'verify',     label: 'Verify',      icon: 'fa-shield-check',      variant: 'success'   },
+                { key: 'unverify',   label: 'Unverify',    icon: 'fa-shield-xmark',      variant: 'warning'   },
+                { key: 'disconnect', label: 'Disconnect',  icon: 'fa-plug-circle-xmark', variant: 'secondary' },
+                { key: 'delete',     label: 'Delete',      icon: 'fa-trash',             variant: 'danger'    },
+            ] : []
+
+            // ── Site settings ─────────────────────────────────────────────
+            async function toggleSetting(key) {
+                const ref_map = { allow_registration, allow_login, email_verification_enabled, weather_widget_enabled }
+                if (key in ref_map) {
+                    ref_map[key].value = !ref_map[key].value
+                    const res = await apiFetch('/api/admin/site-config', 'POST', {
+                        key, value: ref_map[key].value
+                    })
+                    if (res.ok) {
+                        clearTimeout(saved_timer)
+                        settings_saved.value = true
+                        saved_timer = setTimeout(() => { settings_saved.value = false }, 2500)
+                    } else {
+                        ref_map[key].value = !ref_map[key].value  // revert
+                        await create_message('Failed to save setting', TOAST.ERROR, true)
+                    }
+                }
+            }
+
+            // ── Inline toggles ─────────────────────────────────────────────
+            async function toggleVerified(item) {
+                const res = await apiFetch(`/api/account/${item.id}/toggle-verified`, 'POST')
+                if (res.ok) {
+                    const data = await res.json()
+                    item.is_verified = data.is_verified
+                    await create_message(
+                        data.is_verified ? 'User verified' : 'Verification revoked',
+                        data.is_verified ? TOAST.SUCCESS : TOAST.WARNING,
+                        false
+                    )
+                } else {
+                    await display_toast(res)
+                }
+            }
+
+            async function disconnectUser(item) {
+                const name = `${item.first_name} ${item.last_name}`.trim()
+                if (!confirm(`Disconnect "${name}"? They will be logged out on their next request.`)) return
+                const res = await apiFetch(`/api/account/${item.id}/disconnect`, 'POST')
+                if (res.ok) {
+                    item.is_connected = false
+                    await create_message('User disconnected', TOAST.SUCCESS, false)
+                } else {
+                    await display_toast(res)
+                }
+            }
+
+            // ── Bulk actions ──────────────────────────────────────────────
+            async function handleBulkAction({ action, ids }) {
+                const count = Array.isArray(ids) ? ids.length : 'all selected'
+
+                if (action === 'delete') {
+                    if (!confirm(`Delete ${count} user(s)? This cannot be undone.`)) return
+                    let errors = 0
+                    for (const id of ids) {
+                        const res = await apiFetch(`/api/account/delete_user/${id}`, 'DELETE')
+                        if (!res.ok) errors++
+                    }
+                    await create_message(
+                        errors === 0 ? `${ids.length} user(s) deleted` : `${errors} error(s)`,
+                        errors === 0 ? TOAST.SUCCESS : TOAST.ERROR,
+                        errors > 0
+                    )
+                } else if (action === 'verify' || action === 'unverify') {
+                    const verified = action === 'verify'
+                    const res = await apiFetch('/api/account/bulk-verify', 'POST', { ids, verified })
+                    if (res.ok) {
+                        await create_message(
+                            `${count} user(s) ${verified ? 'verified' : 'unverified'}`,
+                            verified ? TOAST.SUCCESS : TOAST.WARNING,
+                            false
+                        )
+                    } else {
+                        await display_toast(res)
+                    }
+                } else if (action === 'disconnect') {
+                    if (!confirm(`Disconnect ${count} user(s)?`)) return
+                    const res = await apiFetch('/api/account/bulk-disconnect', 'POST', { ids })
+                    if (res.ok) {
+                        await create_message(`${count} user(s) disconnected`, TOAST.SUCCESS, false)
+                    } else {
+                        await display_toast(res)
+                    }
+                }
+
+                table_ref.value?.fetchData()
+            }
+
+            // ── Inline role change ────────────────────────────────────────
+            async function changeRole(item, new_role_id) {
+                const rid = parseInt(new_role_id, 10)
+                const res = await apiFetch(`/api/account/admin/user/${item.id}`, 'PUT', { role_id: rid })
+                if (res.ok) {
+                    const updated = await res.json()
+                    item.role_id   = updated.role_id
+                    item.role_name = updated.role_name
+                    item.is_admin  = updated.is_admin
+                    await create_message('Role updated', TOAST.SUCCESS, false)
+                } else {
+                    await display_toast(res)
+                }
+            }
+
+            // ── Row actions ───────────────────────────────────────────────
+            function handleCreate() { window.location.href = '/account/register' }
+
+            function handleEdit(item) {
+                selected_user.value = { ...item }
+                show_edit_modal.value = true
+            }
+
+            function handleView(item) {
+                window.location.href = `/admin/users/${item.id}`
+            }
+
+            function handleDelete(item) {
+                selected_user.value = { ...item }
+                show_delete_modal.value = true
+            }
+
+            // ── Modal callbacks ───────────────────────────────────────────
+            function onSaved(updated) {
+                // Update the row in the table without a full refetch
+                if (table_ref.value) {
+                    const items = table_ref.value.items ?? []
+                    const idx   = items.findIndex(i => i.id === updated.id)
+                    if (idx !== -1) {
+                        items[idx] = { ...items[idx], ...updated }
+                    }
+                }
+                show_edit_modal.value = false
+                create_message('User updated', TOAST.SUCCESS, false)
+            }
+
+            async function onDeleteConfirm() {
+                if (!selected_user.value) return
+                delete_loading.value = true
+                try {
+                    const res = await apiFetch(`/api/account/delete_user/${selected_user.value.id}`, 'DELETE')
+                    if (res.ok) {
+                        await create_message('User deleted', TOAST.SUCCESS, false)
+                        show_delete_modal.value = false
+                        selected_user.value = null
+                        table_ref.value?.fetchData()
+                    } else {
+                        await display_toast(res)
+                    }
+                } finally {
+                    delete_loading.value = false
+                }
+            }
+
+            // ── Utils ─────────────────────────────────────────────────────
+            function formatDate(val) {
+                if (!val) return '—'
+                try {
+                    return new Date(val).toLocaleDateString(undefined, {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                    })
+                } catch { return val }
+            }
+
+            return {
+                message_list, page_is_loading, table_ref,
+                can_create, can_edit, can_delete, can_site_config, roleHref,
+                allow_registration, allow_login, email_verification_enabled, weather_widget_enabled,
+                settings_saved, toggleSetting,
+                columns, bulk_actions,
+                toggleVerified, disconnectUser, handleBulkAction, changeRole,
+                handleCreate, handleEdit, handleView, handleDelete,
+                show_edit_modal, show_delete_modal, selected_user, roles_list, delete_loading,
+                onSaved, onDeleteConfirm,
+                formatDate,
+            }
+        },
+    }).mount('#main-container')
+</script>
+{% endblock %}

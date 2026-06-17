@@ -1,0 +1,96 @@
+/*
+  Footer — app-footer, branding, links, copyright
+  Imported in base.html alongside core.css
+*/
+
+/*---FOOTER---*/
+
+.app-footer {
+    border-top: 1px solid var(--border);
+    background-color: var(--bg-surface);
+    flex-shrink: 0;
+    transition: background-color var(--transition-slow), border-color var(--transition-slow);
+}
+
+.footer-inner {
+    height: var(--footer-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.75rem;
+    gap: 1rem;
+}
+
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.footer-brand-name {
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: color var(--transition-slow);
+}
+
+.footer-version {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    transition: background-color var(--transition-slow), border-color var(--transition-slow);
+}
+
+.footer-links {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.footer-link {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition), background-color var(--transition);
+}
+
+.footer-link:hover {
+    color: var(--text-main);
+    background-color: var(--bg-elevated);
+}
+
+.footer-copy {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color var(--transition-slow);
+}
+
+.footer-creator {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color var(--transition-slow);
+}
+
+@media (max-width: 575.98px) {
+    .footer-inner {
+        padding: 0 1.125rem;
+    }
+
+    .footer-copy {
+        display: none;
+    }
+}

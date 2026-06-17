@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block page_title %}Create Account{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+    <div v-if="page_is_loading">
+
+        <div class="page-body">
+            <div class="row justify-content-center">
+                <div class="col-12 col-sm-9 col-md-7 col-lg-5 col-xl-4">
+
+                    <div class="text-center mb-4">
+                        <h1 class="page-title">Create account</h1>
+                        <p class="text-muted small mb-0">Fill in the details below to get started</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body p-4">
+
+                            <form action="{{ url_for('account.create_user') }}" method="POST">
+                                {{ form.hidden_tag() }}
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.first_name.label.text }}</label>
+                                        {{ form.first_name(class="form-control", placeholder="First name") }}
+                                        {% for e in form.first_name.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.last_name.label.text }}</label>
+                                        {{ form.last_name(class="form-control", placeholder="Last name") }}
+                                        {% for e in form.last_name.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    {{ form.email(class="form-control", placeholder="you@example.com") }}
+                                    {% for e in form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ e }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label">Password</label>
+                                    {{ form.password(class="form-control", placeholder="Min 8 chars, upper, lower, digit", id="passwordInput") }}
+                                    {% for e in form.password.errors %}
+                                    <div class="text-danger small mt-1">{{ e }}</div>
+                                    {% endfor %}
+                                    <password-strength :value="password_input"></password-strength>
+                                </div>
+
+                                {{ form.submit(class="btn btn-primary w-100 py-2 fw-semibold") }}
+
+                            </form>
+
+                        </div>
+                    </div>
+
+                    <p class="text-center text-muted small mt-3">
+                        Already have an account?
+                        <a href="{{ url_for('account.login') }}" class="text-decoration-none">Sign in</a>
+                    </p>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted, nextTick } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import PasswordStrength from '/static/js/components/password-strength.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, PasswordStrength },
+        setup() {
+            const page_is_loading = ref(false)
+            const password_input  = ref('')
+
+            onMounted(async () => {
+                page_is_loading.value = true
+                await nextTick()
+                const field = document.getElementById('passwordInput')
+                if (field) field.addEventListener('input', e => { password_input.value = e.target.value })
+            })
+
+            return { message_list, page_is_loading, password_input }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

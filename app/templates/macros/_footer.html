@@ -1,0 +1,42 @@
+{#
+  _footer.html — App footer
+  Included in base.html inside .app-main, only on pages with navigation.
+  Variables available: app_version, current_user
+#}
+<footer class="app-footer">
+    <div class="footer-inner">
+
+        <div class="footer-brand">
+            <span class="footer-brand-name">Flask Launchpad</span>
+            <code class="footer-version">{{ app_version }}</code>
+        </div>
+
+        <span class="footer-creator"> by <a href="https://github.com/ecrou-exact" target="_blank">ecrou-exact 🔩​</a></span>
+
+        <nav class="footer-links">
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('home.docs') }}" class="footer-link">
+                <i class="fas fa-book me-1" style="font-size:.65rem;"></i>Docs
+            </a>
+            {% endif %}
+            {% if current_user.is_authenticated and current_user.is_admin() %}
+            <a href="/api/" target="_blank" class="footer-link">
+                <i class="fas fa-code me-1" style="font-size:.65rem;"></i>API
+            </a>
+            {% endif %}
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('config.settings') }}" class="footer-link">
+                <i class="fas fa-gear me-1" style="font-size:.65rem;"></i>Settings
+            </a>
+            {% endif %}
+        </nav>
+
+        <a href="https://github.com/ecrou-exact/flask-launchpad.git" target="_blank" class="footer-link">
+            <i class="fab fa-github me-1" style="font-size:.65rem;"></i>GitHub
+        </a>
+        
+
+        <span class="footer-copy">© 2026 Flask Launchpad</span>
+
+    </div>
+</footer>

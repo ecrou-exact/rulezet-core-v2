@@ -1,0 +1,172 @@
+/*
+  stat-card.css — KPI metric card component.
+  Color variants driven by .sc--{color} class.
+*/
+
+/*---STAT_CARD_BASE---*/
+
+.sc {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 18px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow var(--transition), border-color var(--transition);
+}
+
+.sc::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    background: var(--sc-accent);
+}
+
+.sc:hover { box-shadow: var(--shadow-md); }
+
+/*---STAT_CARD_ICON---*/
+
+.sc-icon-wrap {
+    flex-shrink: 0;
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--sc-dim);
+    border: 1px solid var(--sc-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .95rem;
+    color: var(--sc-accent);
+}
+
+/*---STAT_CARD_BODY---*/
+
+.sc-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.sc-value {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+}
+
+.sc-unit {
+    font-size: .95rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 2px;
+}
+
+.sc-label {
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-top: 4px;
+}
+
+.sc-sub {
+    font-size: .72rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-family: var(--font-sans);
+}
+
+/*---STAT_CARD_TREND---*/
+
+.sc-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: .7rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 99px;
+    white-space: nowrap;
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+.sc-trend i { font-size: .62rem; }
+
+.sc-trend--up {
+    background: rgba(34, 197, 94, .13);
+    color: #22c55e;
+}
+.sc-trend--down {
+    background: rgba(239, 68, 68, .13);
+    color: #ef4444;
+}
+.sc-trend--neutral {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+}
+
+/*---STAT_CARD_SKELETON---*/
+
+.sc--loading .sc-icon-wrap { opacity: .3; }
+
+.sc-skeleton-value,
+.sc-skeleton-label {
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    animation: sc-pulse 1.4s ease-in-out infinite;
+}
+
+.sc-skeleton-value { height: 28px; width: 80px; margin-bottom: 8px; }
+.sc-skeleton-label { height: 12px; width: 110px; }
+
+@keyframes sc-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .45; }
+}
+
+/*---STAT_CARD_COLORS---*/
+
+.sc--brand {
+    --sc-accent: var(--brand);
+    --sc-dim:    var(--brand-dim);
+    --sc-glow:   var(--brand-glow);
+}
+.sc--blue {
+    --sc-accent: #3b82f6;
+    --sc-dim:    rgba(59, 130, 246, .1);
+    --sc-glow:   rgba(59, 130, 246, .25);
+}
+.sc--green {
+    --sc-accent: #22c55e;
+    --sc-dim:    rgba(34, 197, 94, .1);
+    --sc-glow:   rgba(34, 197, 94, .25);
+}
+.sc--red {
+    --sc-accent: #ef4444;
+    --sc-dim:    rgba(239, 68, 68, .1);
+    --sc-glow:   rgba(239, 68, 68, .25);
+}
+.sc--orange {
+    --sc-accent: #f97316;
+    --sc-dim:    rgba(249, 115, 22, .1);
+    --sc-glow:   rgba(249, 115, 22, .25);
+}
+.sc--purple {
+    --sc-accent: #a855f7;
+    --sc-dim:    rgba(168, 85, 247, .1);
+    --sc-glow:   rgba(168, 85, 247, .25);
+}
+.sc--gray {
+    --sc-accent: var(--text-muted);
+    --sc-dim:    var(--bg-elevated);
+    --sc-glow:   var(--border);
+}

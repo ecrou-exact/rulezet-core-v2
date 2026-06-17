@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block page_title %}Sign in{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+    <div v-if="page_is_loading">
+
+        <div class="page-body">
+            <div class="row justify-content-center">
+                <div class="col-12 col-sm-9 col-md-7 col-lg-5 col-xl-4">
+
+                    <div class="text-center mb-4">
+                        <h1 class="page-title">Sign in</h1>
+                        <p class="text-muted small mb-0">Welcome back</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body p-4">
+
+                            <form action="" method="post">
+                                {{ form.hidden_tag() }}
+
+                                <div class="form-floating mb-3">
+                                    {{ form.email(class_="form-control", placeholder="name@example.com", id="floatingEmail") }}
+                                    <label for="floatingEmail">{{ form.email.label.text }}</label>
+                                    {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-floating mb-4">
+                                    {{ form.password(class_="form-control", placeholder="Password", id="floatingPassword") }}
+                                    <label for="floatingPassword">{{ form.password.label.text }}</label>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <div class="form-check">
+                                        {{ form.remember_me(class="form-check-input", id="rememberMe") }}
+                                        <label class="form-check-label small" for="rememberMe">
+                                            {{ form.remember_me.label.text }}
+                                        </label>
+                                    </div>
+                                    {% if allow_registration %}
+                                    <a href="{{ url_for('account.create_user') }}" class="small text-decoration-none">
+                                        Create account
+                                    </a>
+                                    {% endif %}
+                                </div>
+
+                                <button class="btn btn-primary w-100 py-2 fw-semibold" type="submit">
+                                    Sign in
+                                </button>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            onMounted(() => { page_is_loading.value = true })
+            return { message_list, page_is_loading }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

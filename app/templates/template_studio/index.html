@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/template_studio/template_studio.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="ts-index" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Template Studio</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Template Studio</h1>
+            </div>
+            <div class="page-actions">
+                <a href="{{ url_for('template_studio.new_page') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus me-1"></i> New Page
+                </a>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            {% if pages %}
+            <div class="d-flex flex-column gap-2">
+                {% for page in pages %}
+
+                {# ── compute auto-placed sections for mini-preview ── #}
+                {% set ns = namespace(col=1, row=1) %}
+                {% set placed = [] %}
+                {% for s in page.sections %}
+                    {% set sc     = s.col     if s.col     else ns.col %}
+                    {% set sr     = s.row     if s.row     else ns.row %}
+                    {% set scspan = s.col_span if s.col_span else 3 %}
+                    {% set srspan = s.row_span if s.row_span else 1 %}
+                    {% if not s.col %}
+                        {% if ns.col + scspan - 1 > 3 %}{% set ns.col = 1 %}{% set ns.row = ns.row + srspan %}{% set sc = 1 %}{% set sr = ns.row %}{% endif %}
+                        {% set ns.col = ns.col + scspan %}
+                        {% if ns.col > 3 %}{% set ns.col = 1 %}{% set ns.row = ns.row + srspan %}{% endif %}
+                    {% endif %}
+                    {% set _ = placed.append({'type': s.type, 'col': sc, 'row': sr, 'col_span': scspan, 'row_span': srspan}) %}
+                {% endfor %}
+                {% set max_row = namespace(val=1) %}
+                {% for p in placed %}{% if p.row + p.row_span - 1 > max_row.val %}{% set max_row.val = p.row + p.row_span - 1 %}{% endif %}{% endfor %}
+
+                {# type → icon + color #}
+                {% set type_icon  = {'page_header': 'fa-heading', 'data_table': 'fa-table', 'cards_grid': 'fa-grip', 'stats': 'fa-chart-bar', 'text_block': 'fa-align-left', 'comments': 'fa-comments', 'spacer': 'fa-border-all'} %}
+                {% set type_color = {'page_header': '#6366f1', 'data_table': '#3b82f6', 'cards_grid': '#8b5cf6', 'stats': '#f59e0b', 'text_block': '#10b981', 'comments': '#ec4899', 'spacer': '#94a3b8'} %}
+
+                <div class="ts-index-card">
+
+                    {# ── mini-preview thumbnail ── #}
+                    <div class="ts-thumb" style="grid-template-rows: repeat({{ max_row.val }}, 1fr);" title="{{ page.sections | length }} section(s)">
+                        {% if not placed %}
+                        <div class="ts-thumb-empty"><i class="fas fa-border-none"></i></div>
+                        {% else %}
+                        {% for p in placed %}
+                        <div class="ts-thumb-cell"
+                             style="grid-column:{{ p.col }}/span {{ p.col_span }};grid-row:{{ p.row }}/span {{ p.row_span }};background:{{ type_color.get(p.type, '#94a3b8') }}22;color:{{ type_color.get(p.type, '#94a3b8') }};">
+                            <i class="fas {{ type_icon.get(p.type, 'fa-square') }}"></i>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <div class="ts-index-icon">
+                        <i class="fas {{ page.nav_icon or 'fa-file' }}"></i>
+                    </div>
+
+                    <div class="ts-index-info">
+                        <div class="ts-index-name">{{ page.name }}</div>
+                        <div class="ts-index-meta">
+                            /pages/{{ page.slug }}
+                            {% if page.description %} &mdash; {{ page.description[:80] }}{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="ts-index-badges">
+                        <span class="ts-badge {% if page.is_published %}published{% else %}draft{% endif %}">
+                            {% if page.is_published %}
+                                <i class="fas fa-circle-check me-1" style="font-size:.6rem;"></i>Published
+                            {% else %}
+                                <i class="fas fa-circle-half-stroke me-1" style="font-size:.6rem;"></i>Draft
+                            {% endif %}
+                        </span>
+                        {% if page.nav_group %}
+                        <span class="ts-badge group">{{ page.nav_group }}</span>
+                        {% endif %}
+                        <span class="ts-badge draft">{{ page.sections | length }} section{{ 's' if (page.sections | length) != 1 }}</span>
+                    </div>
+
+                    <div class="ts-index-actions">
+                        {% if page.is_published %}
+                        <a href="{{ url_for('dynamic_pages.view_page', slug=page.slug) }}"
+                           class="btn btn-sm btn-outline-secondary" target="_blank" title="View live page">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('template_studio.preview_page', uuid=page.uuid) }}"
+                           class="btn btn-sm btn-outline-secondary" target="_blank" title="Preview">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('template_studio.edit_page', uuid=page.uuid) }}"
+                           class="btn btn-sm btn-outline-primary" title="Edit in builder">
+                            <i class="fas fa-pen"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger"
+                                @click="askPurge('{{ page.uuid }}', '{{ page.name | replace("'", "\\'") }}')"
+                                title="Delete permanently">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% else %}
+            <div class="ts-empty-state">
+                <i class="fas fa-wand-magic-sparkles"></i>
+                <p>No pages yet — create your first one to get started.</p>
+                <a href="{{ url_for('template_studio.new_page') }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-plus me-1"></i> New Page
+                </a>
+            </div>
+            {% endif %}
+
+        </div>
+
+        {# ── Purge confirmation modal ── #}
+        <div v-if="purge_target" class="ts-modal-overlay" @click.self="purge_target = null">
+            <div class="ts-modal">
+                <div class="ts-modal-title">
+                    <i class="fas fa-triangle-exclamation me-2" style="color:#dc2626;"></i>
+                    Delete permanently?
+                </div>
+                <div class="ts-modal-body">
+                    <strong>[[ purge_target.name ]]</strong> will be permanently removed, along with any comments
+                    attached to its comment sections. This cannot be undone.
+                </div>
+                <div class="ts-modal-actions">
+                    <button class="btn btn-sm btn-outline-secondary" @click="purge_target = null">Cancel</button>
+                    <button class="btn btn-sm btn-danger" :disabled="purging" @click="doPurge">
+                        <span v-if="purging"><i class="fas fa-spinner fa-spin me-1"></i>Deleting…</span>
+                        <span v-else><i class="fas fa-trash me-1"></i>Delete permanently</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { apiFetch, TOAST } from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+
+        setup() {
+            const page_is_loading = ref(false)
+            const purge_target    = ref(null)   // { uuid, name }
+            const purging         = ref(false)
+
+            onMounted(() => { page_is_loading.value = true })
+
+            function askPurge(uuid, name) {
+                purge_target.value = { uuid, name }
+            }
+
+            async function doPurge() {
+                if (!purge_target.value) return
+                purging.value = true
+                const { uuid, name } = purge_target.value
+                const res = await apiFetch(`/admin/template-studio/${uuid}/purge`, 'POST')
+                const d   = await res.json()
+                purging.value     = false
+                purge_target.value = null
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS)
+                    setTimeout(() => window.location.reload(), 600)
+                } else {
+                    create_message(d.message || 'Delete failed', TOAST.ERROR, true)
+                }
+            }
+
+            return { message_list, page_is_loading, purge_target, purging, askPurge, doPurge }
+        }
+    }).mount('#ts-index')
+</script>
+{% endblock %}

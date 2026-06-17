@@ -1,0 +1,16 @@
+{#
+  _user_perms.html — Injects USER_PERMS global JS object.
+  Available everywhere via hasPerm('key') or USER_PERMS.is_admin.
+  Included in base.html once.
+#}
+{% if current_user.is_authenticated %}
+<script>
+const USER_PERMS = {
+    is_admin:    {{ 'true' if user_is_admin else 'false' }},
+    permissions: {{ user_perms | tojson }},
+};
+window.hasPerm = function(key) {
+    return USER_PERMS.is_admin || USER_PERMS.permissions.includes(key);
+};
+</script>
+{% endif %}

@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/table/data-table.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/jobs/jobs.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Jobs</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Background Jobs</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            <!-- Status filter chips -->
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <button
+                    v-for="s in status_filters"
+                    :key="s.key"
+                    class="btn btn-sm"
+                    :class="active_status === s.key ? 'btn-primary' : 'btn-outline-secondary'"
+                    @click="setStatusFilter(s.key)">
+                    [[ s.label ]] <span v-if="s.count !== null" class="badge ms-1 bg-secondary">[[ s.count ]]</span>
+                </button>
+            </div>
+
+            <data-table
+                ref="table_ref"
+                :fetch-url="fetch_url"
+                :columns="columns"
+                :can-delete="can_manage"
+                :can-view="true"
+                :bulk-actions="bulk_actions"
+                initial-sort="created_at"
+                initial-dir="desc"
+                @delete="handleDelete"
+                @view="handleView"
+                @bulk-action="handleBulk">
+
+                <!-- Status cell -->
+                <template #cell-status="{ item }">
+                    <span class="jobs-status-badge" :class="'jobs-status-badge--' + item.status">
+                        <i :class="statusIcon(item.status)"></i>
+                        [[ item.status ]]
+                    </span>
+                </template>
+
+                <!-- Progress cell -->
+                <template #cell-progress="{ item }">
+                    <div class="jobs-progress-wrap">
+                        <div class="jobs-progress-bar">
+                            <div
+                                class="jobs-progress-fill"
+                                :class="item.status === 'running' ? 'jobs-progress-fill--running' : ''"
+                                :style="{ width: item.progress + '%' }">
+                            </div>
+                        </div>
+                        <span class="jobs-progress-label">[[ item.progress ]]%</span>
+                    </div>
+                </template>
+
+                <!-- Duration cell -->
+                <template #cell-duration="{ item }">
+                    <span v-if="item.duration !== null && item.duration !== undefined">
+                        [[ formatDuration(item.duration) ]]
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+
+                <!-- Expand slot -->
+                <template #expand="{ item }">
+                    <div class="p-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="jobs-detail-field">
+                                    <span class="jobs-detail-label">UUID</span>
+                                    <code class="jobs-detail-value" style="font-size:.75rem;">[[ item.uuid ]]</code>
+                                </div>
+                                <div class="jobs-detail-field">
+                                    <span class="jobs-detail-label">Started</span>
+                                    <span class="jobs-detail-value">[[ item.started_at ? new Date(item.started_at).toLocaleString() : '—' ]]</span>
+                                </div>
+                                <div class="jobs-detail-field">
+                                    <span class="jobs-detail-label">Finished</span>
+                                    <span class="jobs-detail-value">[[ item.finished_at ? new Date(item.finished_at).toLocaleString() : '—' ]]</span>
+                                </div>
+                                <div v-if="item.error" class="jobs-detail-field">
+                                    <span class="jobs-detail-label">Error</span>
+                                    <span class="jobs-detail-value text-danger">[[ item.error ]]</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex gap-2 align-items-start flex-wrap">
+                                <a :href="'/jobs/' + item.uuid" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-eye me-1"></i> View details
+                                </a>
+                                <button v-if="can_manage && item.status === 'running'"
+                                    class="btn btn-sm btn-outline-warning"
+                                    @click="actionJob('pause', item)">
+                                    <i class="fas fa-pause me-1"></i> Pause
+                                </button>
+                                <button v-if="can_manage && item.status === 'paused'"
+                                    class="btn btn-sm btn-outline-primary"
+                                    @click="actionJob('resume', item)">
+                                    <i class="fas fa-play me-1"></i> Resume
+                                </button>
+                                <button v-if="can_manage && ['pending','running','paused'].includes(item.status)"
+                                    class="btn btn-sm btn-outline-danger"
+                                    @click="actionJob('cancel', item)">
+                                    <i class="fas fa-ban me-1"></i> Cancel
+                                </button>
+                                <button v-if="can_manage && ['failed','cancelled'].includes(item.status)"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    @click="actionJob('retry', item)">
+                                    <i class="fas fa-rotate-right me-1"></i> Retry
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </data-table>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+    import { apiFetch, TOAST } from '/static/js/constants.js'
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import DataTable  from '/static/js/components/table/data-table.js'
+
+    const CAN_MANAGE = hasPerm('jobs.manage')
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, DataTable },
+
+        setup() {
+            const page_is_loading = ref(false)
+            const table_ref       = ref(null)
+            const can_manage      = CAN_MANAGE
+            const active_status   = ref('')
+
+            const status_filters = [
+                { key: '',          label: 'All',       count: null },
+                { key: 'pending',   label: 'Pending',   count: null },
+                { key: 'running',   label: 'Running',   count: null },
+                { key: 'paused',    label: 'Paused',    count: null },
+                { key: 'completed', label: 'Completed', count: null },
+                { key: 'failed',    label: 'Failed',    count: null },
+                { key: 'cancelled', label: 'Cancelled', count: null },
+            ]
+
+            const fetch_url = computed(() => {
+                const base = '/api/jobs/'
+                return active_status.value ? base + '?status=' + active_status.value : base
+            })
+
+            const columns = [
+                { key: 'title',    label: 'Title',    sortable: true },
+                { key: 'type',     label: 'Type',     sortable: true },
+                { key: 'status',   label: 'Status',   sortable: true,  width: '130px' },
+                { key: 'progress', label: 'Progress', sortable: false, width: '140px' },
+                { key: 'duration', label: 'Duration', sortable: false, width: '90px'  },
+                { key: 'created_at', label: 'Created', sortable: true, type: 'date', width: '120px' },
+            ]
+
+            const bulk_actions = can_manage ? [
+                { key: 'cancel', label: 'Cancel',  icon: 'fa-ban',   variant: 'danger'  },
+                { key: 'delete', label: 'Delete',  icon: 'fa-trash', variant: 'danger'  },
+            ] : []
+
+            let poll_interval = null
+
+            onMounted(() => {
+                page_is_loading.value = true
+                // Auto-refresh every 5s when there are running/pending jobs
+                poll_interval = setInterval(() => {
+                    table_ref.value?.fetchData()
+                }, 5000)
+            })
+
+            onUnmounted(() => {
+                clearInterval(poll_interval)
+            })
+
+            function setStatusFilter(key) {
+                active_status.value = key
+                setTimeout(() => table_ref.value?.fetchData(), 0)
+            }
+
+            function statusIcon(status) {
+                const icons = {
+                    pending:   'fas fa-clock',
+                    running:   'fas fa-spinner fa-spin',
+                    paused:    'fas fa-pause',
+                    completed: 'fas fa-circle-check',
+                    failed:    'fas fa-circle-xmark',
+                    cancelled: 'fas fa-ban',
+                }
+                return icons[status] || 'fas fa-circle'
+            }
+
+            function formatDuration(secs) {
+                if (secs === null || secs === undefined) return '—'
+                if (secs < 60)   return secs.toFixed(1) + 's'
+                if (secs < 3600) return Math.floor(secs / 60) + 'm ' + Math.round(secs % 60) + 's'
+                return Math.floor(secs / 3600) + 'h ' + Math.floor((secs % 3600) / 60) + 'm'
+            }
+
+            function handleView(job) {
+                window.location.href = '/jobs/' + job.uuid
+            }
+
+            async function handleDelete(job) {
+                if (!confirm(`Delete job "${job.title}"?\n\nThis cannot be undone.`)) return
+                const res = await apiFetch('/api/jobs/' + job.uuid, 'DELETE')
+                if (res.ok) {
+                    create_message('Job deleted', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Failed to delete job', TOAST.ERROR, true)
+                }
+            }
+
+            async function actionJob(action, job) {
+                const labels = { pause: 'paused', resume: 'resumed', cancel: 'cancelled', retry: 'queued for retry' }
+                const res = await apiFetch(`/api/jobs/${job.uuid}/${action}`, 'POST')
+                if (res.ok) {
+                    create_message(`Job ${labels[action] || action}`, TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || `Failed to ${action} job`, TOAST.ERROR, true)
+                }
+            }
+
+            async function handleBulk({ action, ids }) {
+                const count = ids === 'ALL' ? 'all' : ids.length
+                const verb  = action === 'cancel' ? 'Cancel' : 'Delete'
+                if (!confirm(`${verb} ${count} selected job(s)?`)) return
+
+                const uuids = ids === 'ALL' ? null : ids
+                const res = await apiFetch('/api/jobs/bulk', 'POST', { action, uuids: uuids || [] })
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message(d.message, TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || `Bulk ${action} failed`, TOAST.ERROR, true)
+                }
+            }
+
+            return {
+                message_list, page_is_loading,
+                table_ref, can_manage, active_status,
+                status_filters, fetch_url, columns, bulk_actions,
+                setStatusFilter, statusIcon, formatDuration,
+                handleView, handleDelete, actionJob, handleBulk,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

@@ -1,0 +1,8 @@
+# pyproject.toml
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::sqlalchemy.exc.SAWarning"
+]

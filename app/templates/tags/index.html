@@ -1,0 +1,516 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/table/data-table.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tags/tags.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Tags</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Tags</h1>
+            </div>
+            <div class="page-actions" v-if="can_manage">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" @click="show_import = !show_import">
+                        <i class="fas fa-file-import me-1"></i> Import
+                    </button>
+                    <button class="btn btn-sm btn-primary" @click="openCreateModal">
+                        <i class="fas fa-plus me-1"></i> New tag
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            <!-- Import panel -->
+            <div v-if="show_import && can_manage" class="tags-import-section mb-3">
+                <div class="tags-import-title">
+                    <i class="fas fa-file-import"></i> Import from submodules
+                </div>
+                <div class="tags-import-grid">
+                    <!-- Taxonomy -->
+                    <div class="tags-import-card">
+                        <div class="tags-import-card-title">
+                            <i class="fas fa-sitemap"></i> MISP Taxonomies
+                        </div>
+                        <select v-model="selected_taxonomy" class="tags-import-select">
+                            <option value="ALL">All taxonomies</option>
+                            <option v-for="t in available_taxonomies" :key="t" :value="t">[[ t ]]</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary w-100" @click="runImport('taxonomy')"
+                            :disabled="import_loading">
+                            <i class="fas fa-download me-1"></i>
+                            [[ import_loading ? 'Starting…' : 'Import' ]]
+                        </button>
+                    </div>
+                    <!-- Galaxy -->
+                    <div class="tags-import-card">
+                        <div class="tags-import-card-title">
+                            <i class="fas fa-globe"></i> MISP Galaxy Clusters
+                        </div>
+                        <select v-model="selected_galaxy" class="tags-import-select">
+                            <option value="ALL">All galaxy clusters</option>
+                            <option v-for="g in available_galaxies" :key="g" :value="g">[[ g ]]</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary w-100" @click="runImport('galaxy')"
+                            :disabled="import_loading">
+                            <i class="fas fa-download me-1"></i>
+                            [[ import_loading ? 'Starting…' : 'Import' ]]
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source filter chips -->
+            <div class="tags-filter-bar">
+                <button v-for="s in source_filters" :key="s.key"
+                    class="tags-source-chip"
+                    :class="{ 'is-active': active_source === s.key }"
+                    @click="setSourceFilter(s.key)">
+                    <i :class="'fas ' + s.icon"></i> [[ s.label ]]
+                </button>
+                <span v-if="active_namespace" class="tags-ns-active-chip">
+                    <i class="fas fa-filter"></i> [[ active_namespace ]]
+                    <button class="tags-ns-active-chip-clear" @click="setNamespaceFilter('')" title="Clear namespace filter">×</button>
+                </span>
+            </div>
+
+            <!-- Data table -->
+            <data-table
+                ref="table_ref"
+                :fetch-url="fetch_url"
+                :columns="columns"
+                :can-delete="can_manage"
+                :can-view="false"
+                :bulk-actions="bulk_actions"
+                initial-sort="namespace"
+                initial-dir="asc"
+                @delete="handleDelete"
+                @bulk-action="handleBulk">
+
+                <!-- Tag name cell with pill -->
+                <template #cell-name="{ item }">
+                    <tag-pill :tag="item"></tag-pill>
+                </template>
+
+                <!-- Source badge -->
+                <template #cell-source="{ item }">
+                    <span class="tags-source-chip" style="cursor:default; font-size:.68rem;">
+                        <i :class="'fas ' + sourceIcon(item.source)"></i>
+                        [[ item.source ]]
+                    </span>
+                </template>
+
+                <!-- Visibility -->
+                <template #cell-is_public="{ item }">
+                    <span v-if="item.is_public" class="text-success" style="font-size:.75rem;">
+                        <i class="fas fa-eye"></i> Public
+                    </span>
+                    <span v-else class="text-muted" style="font-size:.75rem;">
+                        <i class="fas fa-eye-slash"></i> Private
+                    </span>
+                </template>
+
+                <!-- Namespace chip (clickable filter) -->
+                <template #cell-namespace="{ item }">
+                    <span v-if="item.namespace"
+                        class="tags-ns-filter-chip"
+                        :class="{ 'is-active': active_namespace === item.namespace }"
+                        @click.stop="setNamespaceFilter(item.namespace)"
+                        :title="'Filter by ' + item.namespace">
+                        [[ item.namespace ]]
+                    </span>
+                    <span v-else class="text-muted" style="font-size:.72rem;">—</span>
+                </template>
+
+                <!-- Active status -->
+                <template #cell-is_active="{ item }">
+                    <span v-if="item.is_active" class="text-success" style="font-size:.75rem;">
+                        <i class="fas fa-circle-check"></i> Active
+                    </span>
+                    <span v-else class="text-danger" style="font-size:.75rem;">
+                        <i class="fas fa-circle-xmark"></i> Inactive
+                    </span>
+                </template>
+
+                <!-- Expand slot -->
+                <template #expand="{ item }">
+                    <div class="p-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.2rem;">Preview</div>
+                                    <tag-pill :tag="item" size="lg"></tag-pill>
+                                </div>
+                                <div v-if="item.description" class="mb-2">
+                                    <div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.2rem;">Description</div>
+                                    <div style="font-size:.8rem;color:var(--text-secondary);">[[ item.description ]]</div>
+                                </div>
+                                <div class="mb-2">
+                                    <div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.2rem;">Full name</div>
+                                    <code style="font-size:.75rem;">[[ item.name ]]</code>
+                                </div>
+                                <!-- Galaxy meta details -->
+                                <div v-if="item.source === 'galaxy' && galaxyMeta(item).length" class="tags-expand-meta">
+                                    <div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
+                                        <i class="fas fa-circle-info me-1"></i> Galaxy details
+                                    </div>
+                                    <div class="tags-expand-meta-grid">
+                                        <template v-for="row in galaxyMeta(item)" :key="row.label">
+                                            <span class="tags-expand-meta-label">[[ row.label ]]</span>
+                                            <span class="tags-expand-meta-value">
+                                                <template v-if="row.links">
+                                                    <a v-for="(link, i) in row.links" :key="i"
+                                                        :href="link" target="_blank" rel="noopener"
+                                                        class="tags-expand-meta-link">[[ i + 1 ]]</a>
+                                                </template>
+                                                <template v-else>[[ row.value ]]</template>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex gap-2 align-items-start flex-wrap" v-if="can_manage">
+                                <button v-if="!item.is_active"
+                                    class="btn btn-sm btn-outline-success"
+                                    @click="activateTag(item)">
+                                    <i class="fas fa-circle-check me-1"></i> Activate
+                                </button>
+                                <button v-if="item.is_active"
+                                    class="btn btn-sm btn-outline-warning"
+                                    @click="deactivateTag(item)">
+                                    <i class="fas fa-circle-xmark me-1"></i> Deactivate
+                                </button>
+                                <button v-if="item.source === 'custom' || can_manage"
+                                    class="btn btn-sm btn-outline-primary"
+                                    @click="openEditModal(item)">
+                                    <i class="fas fa-pen me-1"></i> Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </data-table>
+
+        </div>
+    </div>
+
+    <!-- Create / Edit modal -->
+    <div v-if="modal_open" class="modal-backdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;display:flex;align-items:center;justify-content:center;" @click.self="modal_open=false">
+        <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;width:100%;max-width:460px;position:relative;">
+            <h5 style="margin:0 0 1rem;font-size:.95rem;font-weight:700;">[[ editing_tag ? 'Edit tag' : 'Create tag' ]]</h5>
+
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Tag name <span class="text-danger">*</span></label>
+                <input v-model="form.name" class="tags-modal-input" placeholder="namespace:label" />
+                <div style="font-size:.68rem;color:var(--text-muted);margin-top:.25rem;">
+                    Format: <code>namespace:label</code> e.g. <code>tlp:red</code>
+                </div>
+            </div>
+
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Description</label>
+                <textarea v-model="form.description" class="tags-modal-input" rows="2" style="resize:vertical;"></textarea>
+            </div>
+
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Color</label>
+                <div class="tags-color-row">
+                    <input type="color" v-model="form.color" class="tags-color-swatch" style="padding:0;cursor:pointer;" />
+                    <input v-model="form.color" class="tags-modal-input" placeholder="#6c757d" style="font-family:var(--font-mono);" />
+                </div>
+            </div>
+
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Icon (Font Awesome class)</label>
+                <input v-model="form.icon" class="tags-modal-input" placeholder="fa-tag" />
+            </div>
+
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Visibility</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" v-model="form.is_public" id="chk-public" />
+                    <label class="form-check-label" for="chk-public" style="font-size:.8rem;">Public (visible to all users)</label>
+                </div>
+            </div>
+
+            <!-- Live preview -->
+            <div class="tags-modal-field">
+                <label class="tags-modal-label">Preview</label>
+                <div class="tags-preview-row">
+                    <tag-pill v-if="form.name" :tag="{ name: form.name, color: form.color, icon: form.icon ? 'fas ' + form.icon : '', source: 'custom', is_active: true }"></tag-pill>
+                    <span v-else style="font-size:.75rem;color:var(--text-muted);">Enter a tag name to preview</span>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-secondary" @click="modal_open=false">Cancel</button>
+                <button class="btn btn-sm btn-primary" @click="saveTag" :disabled="modal_saving">
+                    [[ modal_saving ? 'Saving…' : (editing_tag ? 'Save changes' : 'Create tag') ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+    import { apiFetch, TOAST } from '/static/js/constants.js'
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import DataTable  from '/static/js/components/table/data-table.js'
+    import TagPill    from '/static/js/components/tag-pill.js'
+
+    const can_manage = hasPerm('tags.manage')
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, DataTable, TagPill },
+
+        setup() {
+            const page_is_loading     = ref(false)
+            const table_ref           = ref(null)
+            const show_import         = ref(false)
+            const import_loading      = ref(false)
+            const active_source       = ref('')
+            const active_namespace    = ref('')
+            const selected_taxonomy   = ref('ALL')
+            const selected_galaxy     = ref('ALL')
+            const available_taxonomies = ref([])
+            const available_galaxies   = ref([])
+
+            // Modal state
+            const modal_open   = ref(false)
+            const modal_saving = ref(false)
+            const editing_tag  = ref(null)
+            const form = ref({ name: '', description: '', color: '#6c757d', icon: 'fa-tag', is_public: false })
+
+            const source_filters = [
+                { key: '',              label: 'All',           icon: 'fa-tags'    },
+                { key: 'custom',        label: 'Custom',        icon: 'fa-tag'     },
+                { key: 'taxonomy',      label: 'Taxonomy',      icon: 'fa-sitemap' },
+                { key: 'galaxy',        label: 'Galaxy',        icon: 'fa-globe'   },
+                { key: 'vulnerability', label: 'Vulnerability', icon: 'fa-bug'     },
+            ]
+
+            const fetch_url = computed(() => {
+                const params = new URLSearchParams({ is_active: '1' })
+                if (active_source.value)    params.set('source',    active_source.value)
+                if (active_namespace.value) params.set('namespace', active_namespace.value)
+                return `/api/tags/?${params}`
+            })
+
+            const columns = [
+                { key: 'name',      label: 'Tag',        sortable: true  },
+                { key: 'source',    label: 'Source',     sortable: true,  width: '120px' },
+                { key: 'namespace', label: 'Namespace',  sortable: true,  width: '140px' },
+                { key: 'is_public', label: 'Visibility', sortable: false, width: '100px' },
+                { key: 'is_active', label: 'Status',     sortable: false, width: '100px' },
+                { key: 'created_at', label: 'Created',   sortable: true,  type: 'date', width: '110px' },
+            ]
+
+            const bulk_actions = can_manage ? [
+                { key: 'activate',   label: 'Activate',   icon: 'fa-circle-check', variant: 'success' },
+                { key: 'deactivate', label: 'Deactivate', icon: 'fa-circle-xmark', variant: 'warning' },
+                { key: 'delete',     label: 'Delete',     icon: 'fa-trash',        variant: 'danger'  },
+            ] : []
+
+            onMounted(async () => {
+                if (can_manage) {
+                    await loadImportSources()
+                }
+                page_is_loading.value = true
+            })
+
+            async function loadImportSources() {
+                const res = await apiFetch('/api/tags/import/sources', 'GET')
+                if (res.ok) {
+                    const d = await res.json()
+                    available_taxonomies.value = d.taxonomies || []
+                    available_galaxies.value   = d.galaxies   || []
+                }
+            }
+
+            function setSourceFilter(key) {
+                active_source.value = key
+                setTimeout(() => table_ref.value?.fetchData(), 0)
+            }
+
+            function setNamespaceFilter(ns) {
+                active_namespace.value = active_namespace.value === ns ? '' : ns
+                setTimeout(() => table_ref.value?.fetchData(), 0)
+            }
+
+            function sourceIcon(source) {
+                return { custom: 'fa-tag', taxonomy: 'fa-sitemap', galaxy: 'fa-globe', vulnerability: 'fa-bug' }[source] || 'fa-tag'
+            }
+
+            // ── Import ────────────────────────────────────────────────────────
+            async function runImport(type) {
+                import_loading.value = true
+                let res
+                if (type === 'taxonomy') {
+                    res = await apiFetch('/api/tags/import/taxonomy', 'POST', { namespace: selected_taxonomy.value })
+                } else {
+                    res = await apiFetch('/api/tags/import/galaxy', 'POST', { cluster: selected_galaxy.value })
+                }
+                import_loading.value = false
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message('Import started.', TOAST.SUCCESS, true, { href: `/jobs/${d.job_uuid}`, label: 'View job →', target: '_blank' })
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Import failed', TOAST.ERROR, true)
+                }
+            }
+
+            // ── Create / Edit modal ───────────────────────────────────────────
+            function openCreateModal() {
+                editing_tag.value = null
+                form.value = { name: '', description: '', color: '#6c757d', icon: 'fa-tag', is_public: false }
+                modal_open.value = true
+            }
+
+            function openEditModal(tag) {
+                editing_tag.value = tag
+                form.value = {
+                    name:        tag.name,
+                    description: tag.description || '',
+                    color:       tag.color || '#6c757d',
+                    icon:        (tag.icon || '').replace('fas ', '').replace('fa ', ''),
+                    is_public:   tag.is_public,
+                }
+                modal_open.value = true
+            }
+
+            async function saveTag() {
+                if (!form.value.name.trim()) {
+                    create_message('Tag name is required.', TOAST.ERROR)
+                    return
+                }
+                modal_saving.value = true
+                const payload = {
+                    name:        form.value.name.trim(),
+                    description: form.value.description,
+                    color:       form.value.color,
+                    icon:        form.value.icon ? 'fas ' + form.value.icon : '',
+                    is_public:   form.value.is_public,
+                    source:      'custom',
+                }
+                let res
+                if (editing_tag.value) {
+                    res = await apiFetch('/api/tags/' + editing_tag.value.uuid, 'PUT', payload)
+                } else {
+                    res = await apiFetch('/api/tags/', 'POST', payload)
+                }
+                modal_saving.value = false
+                if (res.ok) {
+                    modal_open.value = false
+                    create_message(editing_tag.value ? 'Tag updated.' : 'Tag created.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Failed to save tag.', TOAST.ERROR, true)
+                }
+            }
+
+            // ── Delete / activate / deactivate ────────────────────────────────
+            async function handleDelete(tag) {
+                if (!confirm(`Delete tag "${tag.name}"?`)) return
+                const res = await apiFetch('/api/tags/' + tag.uuid, 'DELETE')
+                if (res.ok) {
+                    create_message('Tag deleted.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Delete failed.', TOAST.ERROR, true)
+                }
+            }
+
+            async function activateTag(tag) {
+                const res = await apiFetch('/api/tags/' + tag.uuid, 'PUT', { is_active: true })
+                if (res.ok) {
+                    create_message('Tag activated.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                }
+            }
+
+            async function deactivateTag(tag) {
+                const res = await apiFetch('/api/tags/' + tag.uuid, 'PUT', { is_active: false })
+                if (res.ok) {
+                    create_message('Tag deactivated.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                }
+            }
+
+            function galaxyMeta(item) {
+                const gm = item.meta?.galaxy_meta || {}
+                const rows = []
+                if (gm.country)
+                    rows.push({ label: 'Country', value: gm.country })
+                if (gm['cfr-suspected-state-sponsor'])
+                    rows.push({ label: 'Sponsor', value: gm['cfr-suspected-state-sponsor'] })
+                if (gm.synonyms?.length)
+                    rows.push({ label: 'Aliases', value: gm.synonyms.join(', ') })
+                if (gm['cfr-target-category']?.length)
+                    rows.push({ label: 'Targets', value: gm['cfr-target-category'].join(', ') })
+                if (gm['targeted-sector']?.length)
+                    rows.push({ label: 'Sectors', value: gm['targeted-sector'].join(', ') })
+                if (gm['cfr-type-of-incident']?.length)
+                    rows.push({ label: 'Incidents', value: gm['cfr-type-of-incident'].join(', ') })
+                if (gm['attribution-confidence'])
+                    rows.push({ label: 'Confidence', value: gm['attribution-confidence'] + '%' })
+                if (gm.refs?.length)
+                    rows.push({ label: 'References', value: null, links: gm.refs })
+                return rows
+            }
+
+            async function handleBulk({ action, ids }) {
+                const count = ids === 'ALL' ? 'all' : ids.length
+                const verb  = action === 'activate' ? 'Activate' : action === 'deactivate' ? 'Deactivate' : 'Delete'
+                if (!confirm(`${verb} ${count} selected tag(s)?`)) return
+
+                const uuids = ids === 'ALL' ? [] : ids
+                const res = await apiFetch('/api/tags/bulk', 'POST', { action, uuids })
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message(d.message, TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || `Bulk ${action} failed.`, TOAST.ERROR, true)
+                }
+            }
+
+            return {
+                message_list, page_is_loading, table_ref,
+                can_manage, show_import, import_loading,
+                active_source, active_namespace, selected_taxonomy, selected_galaxy,
+                available_taxonomies, available_galaxies,
+                source_filters, fetch_url, columns, bulk_actions,
+                modal_open, modal_saving, editing_tag, form,
+                setSourceFilter, setNamespaceFilter, sourceIcon, runImport,
+                openCreateModal, openEditModal, saveTag,
+                handleDelete, activateTag, deactivateTag, handleBulk, galaxyMeta,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

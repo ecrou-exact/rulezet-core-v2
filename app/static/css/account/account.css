@@ -1,0 +1,409 @@
+/*
+  account/account.css — Profile, edit, create pages
+  Uses only CSS variables — all themes compatible.
+*/
+
+/*---PROFILE_HEADER---*/
+
+.profile-header {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.profile-header-banner {
+    height: 100px;
+    background: linear-gradient(135deg,
+        var(--brand) 0%,
+        color-mix(in srgb, var(--brand) 60%, var(--bg-sidebar)) 100%
+    );
+    position: relative;
+}
+
+.profile-header-body {
+    padding: 0 1.75rem 1.5rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.profile-avatar-wrapper {
+    margin-top: -44px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.profile-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--bg-surface);
+    box-shadow: var(--shadow-md);
+    display: block;
+}
+
+.profile-avatar-initials {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--brand);
+    border: 3px solid var(--bg-surface);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+    padding-top: 0.5rem;
+}
+
+.profile-name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.15rem;
+    line-height: 1.2;
+}
+
+.profile-handle {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.profile-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.profile-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.profile-meta-item i {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    width: 14px;
+    text-align: center;
+}
+
+.profile-header-actions {
+    margin-left: auto;
+    padding-top: 0.5rem;
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+
+/*---PROFILE_SECTION_CARD---*/
+
+.profile-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.875rem;
+}
+
+.profile-bio {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.profile-info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.profile-info-row:last-child {
+    border-bottom: none;
+}
+
+.profile-info-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.profile-info-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.profile-info-value {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.profile-info-value a {
+    color: var(--brand);
+    text-decoration: none;
+    transition: opacity var(--transition);
+}
+
+.profile-info-value a:hover { opacity: 0.75; }
+
+
+/*---SOCIAL_PILLS---*/
+
+.social-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.social-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 100px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all var(--transition);
+}
+
+.social-pill:hover {
+    color: var(--brand);
+    border-color: var(--brand-glow);
+    background: var(--brand-dim);
+}
+
+.social-pill i { font-size: 0.8rem; }
+
+
+/*---API_KEY_SECTION---*/
+
+.api-key-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.api-key-code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.api-key-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+
+/*---AVATAR_UPLOAD---*/
+
+.avatar-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition), background-color var(--transition);
+    position: relative;
+}
+
+.avatar-upload-area:hover,
+.avatar-upload-area.drag-over {
+    border-color: var(--brand);
+    background-color: var(--brand-dim);
+}
+
+.avatar-upload-area input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+.avatar-upload-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 0.75rem;
+    display: block;
+    border: 2px solid var(--border);
+}
+
+.avatar-upload-initials {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 auto 0.75rem;
+    border: 2px solid var(--border);
+}
+
+
+/*---FORM_SECTIONS---*/
+
+.form-section {
+    margin-bottom: 1.5rem;
+}
+
+.form-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.form-section-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: var(--brand-dim);
+    color: var(--brand);
+    border-radius: var(--radius-sm);
+    font-size: 0.65rem;
+    margin-right: 0.5rem;
+}
+
+
+/*---PASSWORD_STRENGTH---*/
+
+.password-strength {
+    margin-top: 0.5rem;
+}
+
+.password-strength-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.password-strength-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.password-strength-fill--weak   { background: #ef4444; }
+.password-strength-fill--fair   { background: #f97316; }
+.password-strength-fill--good   { background: #eab308; }
+.password-strength-fill--strong { background: #22c55e; }
+
+.password-strength-criteria {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.password-strength-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    transition: all var(--transition);
+}
+
+.password-strength-chip i { font-size: 0.65rem; }
+
+.password-strength-chip.met {
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.2);
+    background: rgba(34, 197, 94, 0.07);
+}
+
+
+/*---ACCOUNT_ROLE_BADGE---*/
+
+.account-role-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+}
+
+.account-role-chip.admin {
+    color: var(--brand);
+    background: var(--brand-dim);
+    border-color: var(--brand-glow);
+}

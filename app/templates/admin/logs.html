@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/pagination/pagination.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/admin/logs.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/components/timeline.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/components/key-value.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Logs</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Logs</h1>
+            </div>
+            <div class="page-actions">
+                <div class="logs-view-toggle">
+                    <button
+                        class="logs-view-btn"
+                        :class="{ 'is-active': view_mode === 'table' }"
+                        title="Table view"
+                        @click="set_view('table')">
+                        <i class="fas fa-table-list"></i>
+                    </button>
+                    <button
+                        class="logs-view-btn"
+                        :class="{ 'is-active': view_mode === 'timeline' }"
+                        title="Timeline view"
+                        @click="set_view('timeline')">
+                        <i class="fas fa-timeline"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            <!-- Table view -->
+            <log-table
+                v-if="view_mode === 'table'"
+                ref="log_table_ref"
+                fetch-url="/api/log/"
+                :can-delete="can_delete_logs"
+                @delete="handleDelete"
+                @bulk-delete="handleBulkDelete">
+            </log-table>
+
+            <!-- Timeline view -->
+            <div v-else>
+                <div class="logs-tl-toolbar">
+                    <div class="logs-tl-filters">
+                        <button
+                            v-for="lvl in ['all', 'info', 'success', 'warning', 'error']"
+                            :key="lvl"
+                            class="logs-tl-chip"
+                            :class="{ 'is-active': tl_level === lvl }"
+                            @click="set_tl_level(lvl)">
+                            [[ lvl === 'all' ? 'All' : lvl ]]
+                        </button>
+                    </div>
+                    <div class="logs-tl-search">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <input
+                            v-model="tl_search"
+                            @input="debounce_tl_load"
+                            class="logs-tl-search-input"
+                            placeholder="Search logs…"
+                            type="text">
+                    </div>
+                </div>
+
+                <div class="logs-tl-main">
+                    <timeline
+                        :items="tl_items"
+                        :loading="tl_loading"
+                        @select="tl_select">
+                    </timeline>
+
+                    <!-- Detail panel -->
+                    <div v-if="selected_log" class="logs-tl-detail">
+                        <div class="logs-tl-detail-header">
+                            <span class="logs-tl-detail-title">
+                                <i class="fas fa-circle-info me-1" style="font-size:.7rem;"></i>
+                                Log detail
+                            </span>
+                            <button class="logs-tl-detail-close" @click="selected_log = null" title="Close">
+                                <i class="fas fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div class="logs-tl-detail-body">
+                            <key-value :data="selected_log"></key-value>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="!tl_loading && tl_has_more" class="logs-tl-load-more">
+                    <button class="btn btn-outline-secondary btn-sm" @click="tl_load_more">
+                        <i class="fas fa-chevron-down me-1"></i>Load more
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { apiFetch, TOAST }              from '/static/js/constants.js'
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import LogTable   from '/static/js/components/table/log-table.js'
+    import Timeline   from '/static/js/components/timeline.js'
+    import KeyValue   from '/static/js/components/key-value.js'
+
+    const TL_PAGE_SIZE = 50
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, LogTable, Timeline, KeyValue },
+
+        setup() {
+
+            // ── Init ─────────────────────────────────────────────────────────
+            const page_is_loading = ref(false)
+            const log_table_ref   = ref(null)
+            const can_delete_logs = hasPerm('logs.delete')
+            const view_mode       = ref(localStorage.getItem('logs_view') || 'table')
+
+            function set_view(v) {
+                view_mode.value = v
+                localStorage.setItem('logs_view', v)
+                if (v === 'timeline' && !tl_items.value.length) tl_load()
+            }
+
+            onMounted(() => {
+                page_is_loading.value = true
+                if (view_mode.value === 'timeline') tl_load()
+            })
+
+            // ── Timeline state ────────────────────────────────────────────────
+            const tl_items    = ref([])
+            const tl_loading  = ref(false)
+            const tl_level    = ref('all')
+            const selected_log = ref(null)
+            const tl_search  = ref('')
+            const tl_page    = ref(1)
+            const tl_has_more = ref(false)
+            let   tl_debounce = null
+
+            async function tl_load(reset = true) {
+                if (reset) {
+                    tl_page.value = 1
+                    tl_items.value = []
+                }
+                tl_loading.value = true
+
+                const params = new URLSearchParams({
+                    page:     tl_page.value,
+                    per_page: TL_PAGE_SIZE,
+                    sort:     'created_at',
+                })
+                if (tl_level.value !== 'all') params.set('level', tl_level.value)
+                if (tl_search.value.trim())    params.set('search', tl_search.value.trim())
+
+                const res = await apiFetch('/api/log/?' + params.toString())
+                tl_loading.value = false
+                if (!res.ok) return
+
+                const data = await res.json()
+                tl_items.value = reset ? data.items : [...tl_items.value, ...data.items]
+                tl_has_more.value = tl_page.value < data.total_pages
+            }
+
+            function set_tl_level(lvl) {
+                tl_level.value = lvl
+                tl_load()
+            }
+
+            function debounce_tl_load() {
+                clearTimeout(tl_debounce)
+                tl_debounce = setTimeout(() => tl_load(), 350)
+            }
+
+            function tl_load_more() {
+                tl_page.value++
+                tl_load(false)
+            }
+
+            function tl_select(item) {
+                selected_log.value = selected_log.value?.uuid === item.uuid ? null : item
+            }
+
+            // ── Delete single log ─────────────────────────────────────────────
+            async function handleDelete(log) {
+                if (!confirm(`Delete this log entry?\n\n"${log.title}"\n\nThis action cannot be undone.`)) return
+
+                const res = await apiFetch('/api/log/' + log.uuid, 'DELETE')
+                if (res.ok) {
+                    await create_message('Log entry deleted', TOAST.SUCCESS, false)
+                    log_table_ref.value?.fetchData()
+                } else {
+                    const data = await res.json()
+                    await create_message(data.message || 'Failed to delete log', TOAST.ERROR, true)
+                }
+            }
+
+            // ── Bulk delete ───────────────────────────────────────────────────
+            async function handleBulkDelete(uuids) {
+                if (!uuids.length) return
+                if (!confirm(`Delete ${uuids.length} selected log entries? This action cannot be undone.`)) return
+
+                const res = await apiFetch('/api/log/bulk-delete', 'POST', { uuids })
+                if (res.ok) {
+                    const data = await res.json()
+                    await create_message(data.message || 'Logs deleted', TOAST.SUCCESS, false)
+                    log_table_ref.value?.fetchData()
+                } else {
+                    const data = await res.json()
+                    await create_message(data.message || 'Failed to delete logs', TOAST.ERROR, true)
+                }
+            }
+
+            // ── Return ────────────────────────────────────────────────────────
+            return {
+                message_list,
+                page_is_loading,
+                log_table_ref,
+                can_delete_logs,
+                view_mode, set_view,
+                tl_items, tl_loading, tl_level, tl_search, tl_has_more,
+                selected_log,
+                set_tl_level, debounce_tl_load, tl_load_more, tl_select,
+                handleDelete,
+                handleBulkDelete,
+            }
+        },
+    }).mount('#main-container')
+</script>
+{% endblock %}

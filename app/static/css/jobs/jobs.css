@@ -1,0 +1,199 @@
+/*---JOBS_PAGE---*/
+
+.jobs-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .55rem;
+    border-radius: var(--radius-sm);
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+
+.jobs-status-badge--pending    { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+.jobs-status-badge--running    { background: rgba(59,130,246,.12); color: #3b82f6; border: 1px solid rgba(59,130,246,.3); }
+.jobs-status-badge--paused     { background: rgba(245,158,11,.12); color: #f59e0b; border: 1px solid rgba(245,158,11,.3); }
+.jobs-status-badge--completed  { background: rgba(34,197,94,.12); color: #22c55e; border: 1px solid rgba(34,197,94,.3); }
+.jobs-status-badge--failed     { background: rgba(239,68,68,.12); color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.jobs-status-badge--cancelled  { background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+
+/*---PROGRESS_BAR---*/
+
+.jobs-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 100px;
+}
+
+.jobs-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.jobs-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--brand);
+    transition: width .4s ease;
+}
+
+.jobs-progress-fill--running {
+    background: linear-gradient(90deg, var(--brand), var(--brand-glow, var(--brand)));
+    animation: jobs-progress-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes jobs-progress-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .7; }
+}
+
+.jobs-progress-label {
+    font-size: .72rem;
+    color: var(--text-muted);
+    min-width: 28px;
+    text-align: right;
+}
+
+/*---DETAIL_PAGE---*/
+
+.jobs-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .jobs-detail-grid { grid-template-columns: 1fr; }
+}
+
+.jobs-detail-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.jobs-detail-card h6 {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    margin-bottom: .75rem;
+}
+
+.jobs-detail-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .35rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: .85rem;
+}
+
+.jobs-detail-field:last-child { border-bottom: none; }
+
+.jobs-detail-label { color: var(--text-secondary); }
+.jobs-detail-value { color: var(--text-main); font-weight: 500; }
+
+.jobs-big-progress {
+    margin: 1rem 0;
+}
+
+.jobs-big-progress-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--bg-elevated);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.jobs-big-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--brand);
+    transition: width .4s ease;
+}
+
+.jobs-big-progress-fill--running {
+    animation: jobs-progress-pulse 1.5s ease-in-out infinite;
+}
+
+.jobs-big-progress-pct {
+    margin-top: .4rem;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--brand);
+}
+
+/*---LOGS_PANEL---*/
+
+.jobs-logs-panel {
+    background: var(--bg-body);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.jobs-logs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .75rem 1rem;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.jobs-logs-body {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: .5rem;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: .78rem;
+}
+
+.jobs-log-entry {
+    display: flex;
+    gap: .75rem;
+    padding: .2rem .4rem;
+    border-radius: 3px;
+    line-height: 1.5;
+}
+
+.jobs-log-entry:hover { background: var(--bg-elevated); }
+
+.jobs-log-ts {
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.jobs-log-msg--info    { color: var(--text-main); }
+.jobs-log-msg--success { color: #22c55e; }
+.jobs-log-msg--warning { color: #f59e0b; }
+.jobs-log-msg--error   { color: #ef4444; }
+
+/*---ACTIONS_BAR---*/
+
+.jobs-actions-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+[data-bs-theme="dark"] .jobs-status-badge--running   { background: rgba(59,130,246,.18); }
+[data-bs-theme="dark"] .jobs-status-badge--paused    { background: rgba(245,158,11,.18); }
+[data-bs-theme="dark"] .jobs-status-badge--completed { background: rgba(34,197,94,.18); }
+[data-bs-theme="dark"] .jobs-status-badge--failed    { background: rgba(239,68,68,.18); }

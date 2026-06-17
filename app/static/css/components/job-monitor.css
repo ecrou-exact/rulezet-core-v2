@@ -1,0 +1,270 @@
+/*
+  job-monitor.css — Persistent floating job progress widget (bottom-right)
+*/
+
+/*---MOUNT---*/
+
+#job-monitor-widget {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.25rem;
+    z-index: 1080;
+    width: 320px;
+    max-width: calc(100vw - 2rem);
+    pointer-events: none;
+}
+
+
+/*---PANEL---*/
+
+.jm-panel {
+    pointer-events: all;
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent),
+        0 10px 36px rgba(0,0,0,.20),
+        0 3px 10px rgba(0,0,0,.10);
+    overflow: hidden;
+}
+
+/* fade-in/out transition */
+.jm-fade-enter-active { transition: opacity .2s ease, transform .2s ease; }
+.jm-fade-leave-active { transition: opacity .18s ease, transform .18s ease; }
+.jm-fade-enter-from,
+.jm-fade-leave-to     { opacity: 0; transform: translateY(10px) scale(.97); }
+
+
+/*---HEADER---*/
+
+.jm-header {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .6rem .75rem .6rem .875rem;
+    background: color-mix(in srgb, var(--brand) 9%, var(--bg-elevated));
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+.jm-spinner-wrap {
+    flex-shrink: 0;
+    width: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand);
+    font-size: .78rem;
+}
+
+@keyframes jm-spin { to { transform: rotate(360deg); } }
+.jm-spin      { animation: jm-spin 1.1s linear infinite; }
+.jm-spin-idle { color: var(--text-muted); }
+
+.jm-header-label {
+    flex: 1;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.jm-hbtn {
+    background: none;
+    border: none;
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: .65rem;
+    flex-shrink: 0;
+    transition: background var(--transition), color var(--transition);
+}
+.jm-hbtn:hover         { background: var(--bg-hover); color: var(--text-main); }
+.jm-hbtn--close:hover  { background: color-mix(in srgb, #ef4444 18%, transparent); color: #ef4444; }
+
+
+/*---BODY---*/
+
+.jm-body {
+    max-height: 440px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+
+/*---JOB CARD---*/
+
+.jm-job {
+    padding: .65rem .875rem .55rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.jm-job:first-child { border-top: none; }
+
+/* Tint the left edge per status */
+.jm-job--running  { border-left: 3px solid #3b82f6; padding-left: .75rem; }
+.jm-job--pending  { border-left: 3px solid #f59e0b; padding-left: .75rem; }
+.jm-job--paused   { border-left: 3px solid #a855f7; padding-left: .75rem; }
+.jm-job--completed,
+.jm-job--cancelled,
+.jm-job--failed   { border-left: 3px solid var(--border-color); padding-left: .75rem; opacity: .85; }
+
+
+/*---JOB TITLE ROW---*/
+
+.jm-job-row {
+    display: flex;
+    align-items: baseline;
+    gap: .45rem;
+    margin-bottom: .25rem;
+}
+
+.jm-job-title {
+    flex: 1;
+    font-size: .79rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/*---STATUS BADGE---*/
+
+.jm-badge {
+    font-size: .62rem;
+    font-weight: 700;
+    padding: .1rem .4rem;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.jm-badge--running   { background: color-mix(in srgb, #3b82f6 16%, transparent); color: #3b82f6; }
+.jm-badge--pending   { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #f59e0b; }
+.jm-badge--paused    { background: color-mix(in srgb, #a855f7 16%, transparent); color: #a855f7; }
+.jm-badge--completed { background: color-mix(in srgb, #22c55e 16%, transparent); color: #22c55e; }
+.jm-badge--failed    { background: color-mix(in srgb, #ef4444 16%, transparent); color: #ef4444; }
+.jm-badge--cancelled { background: color-mix(in srgb, #6b7280 16%, transparent); color: #6b7280; }
+
+
+/*---ACTION BUTTONS---*/
+
+.jm-job-acts {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    margin-bottom: .4rem;
+    flex-wrap: wrap;
+}
+
+.jm-abtn {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    font-size: .68rem;
+    font-weight: 500;
+    padding: .15rem .45rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+    white-space: nowrap;
+}
+.jm-abtn:hover          { background: var(--bg-hover); color: var(--text-main); }
+.jm-abtn--danger        { color: #ef4444; border-color: color-mix(in srgb, #ef4444 30%, transparent); }
+.jm-abtn--danger:hover  { background: color-mix(in srgb, #ef4444 10%, transparent); }
+.jm-abtn--link          { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+.jm-abtn--link:hover    { background: color-mix(in srgb, var(--brand) 10%, transparent); }
+
+
+/*---PROGRESS---*/
+
+.jm-track {
+    height: 5px;
+    border-radius: 99px;
+    background: var(--bg-hover);
+    overflow: hidden;
+    margin-bottom: .25rem;
+}
+
+.jm-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--brand);
+    transition: width .5s ease;
+    min-width: 0;
+}
+
+@keyframes jm-indeterminate {
+    0%   { margin-left: -40%; width: 40%; }
+    100% { margin-left: 100%; width: 40%; }
+}
+.jm-fill--indeterminate {
+    width: 40% !important;
+    animation: jm-indeterminate 1.4s ease-in-out infinite;
+}
+
+.jm-pct {
+    font-size: .68rem;
+    color: var(--text-muted);
+    margin-bottom: .3rem;
+}
+
+
+/*---LOG TOGGLE + PANEL---*/
+
+.jm-log-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .7rem;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color var(--transition);
+    margin-bottom: .3rem;
+}
+.jm-log-toggle:hover { color: var(--text-main); }
+
+.jm-logs {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: .35rem .5rem;
+    max-height: 110px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    font-size: .68rem;
+    font-family: var(--font-mono, monospace);
+}
+
+.jm-logline {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    word-break: break-word;
+}
+.jm-logline + .jm-logline { border-top: 1px solid var(--border-color); padding-top: 1px; }
+
+.jm-log--error  { color: #ef4444; }
+.jm-log--warn   { color: #f97316; }
+.jm-log--ok     { color: #22c55e; }
+.jm-log--muted  { color: var(--text-muted); font-style: italic; }

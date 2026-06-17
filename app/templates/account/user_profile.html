@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ user.first_name }} {{ user.last_name }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/user_detail.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/comments/comments.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        {# ── Page header ── #}
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">{{ user.first_name }} {{ user.last_name }}</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">{{ user.first_name }} {{ user.last_name }}</h1>
+            </div>
+        </div>
+
+        {# ── Main grid ── #}
+        <div class="page-body">
+            <div class="row g-3">
+
+                {# ── Left column ── #}
+                <div class="col-12 col-lg-8">
+
+                    {# Profile header card #}
+                    <div class="ud-profile-header mb-3">
+                        <div class="ud-profile-banner"></div>
+                        <div class="ud-profile-body">
+                            <div class="ud-avatar-wrap">
+                                {% if user.avatar_filename %}
+                                <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar_filename) }}"
+                                     alt="{{ user.first_name }}"
+                                     class="ud-avatar">
+                                {% else %}
+                                <div class="ud-avatar-initials">{{ user.initials() }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="ud-profile-info">
+                                <h2 class="ud-profile-name">{{ user.first_name }} {{ user.last_name }}</h2>
+                                {% if user.username %}
+                                <p class="ud-profile-handle">@{{ user.username }}</p>
+                                {% endif %}
+                                <div class="ud-profile-meta">
+                                    {% if user.job_title %}
+                                    <span class="ud-profile-meta-item">
+                                        <i class="fas fa-briefcase" style="font-size:.65rem;"></i>
+                                        {{ user.job_title }}{% if user.company %} at {{ user.company }}{% endif %}
+                                    </span>
+                                    {% endif %}
+                                    {% if user.location %}
+                                    <span class="ud-profile-meta-item">
+                                        <i class="fas fa-location-dot" style="font-size:.65rem;"></i>
+                                        {{ user.location }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Bio card #}
+                    {% if user.bio %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">About</p>
+                            <p class="mb-0" style="font-size:.88rem; color:var(--text-secondary); line-height:1.6;">{{ user.bio }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Links card #}
+                    {% if user.website or user.social_github or user.social_twitter or user.social_linkedin %}
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="ud-section-title">Links</p>
+
+                            {% if user.website %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-globe"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Website</div>
+                                    <div class="ud-info-value text-truncate">
+                                        <a href="{{ user.website }}" target="_blank" rel="noopener noreferrer">{{ user.website }}</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if user.social_github %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fab fa-github"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">GitHub</div>
+                                    <div class="ud-info-value">
+                                        <a href="https://github.com/{{ user.social_github }}" target="_blank" rel="noopener noreferrer">@{{ user.social_github }}</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if user.social_twitter %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fab fa-x-twitter"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">X / Twitter</div>
+                                    <div class="ud-info-value">
+                                        <a href="https://x.com/{{ user.social_twitter }}" target="_blank" rel="noopener noreferrer">@{{ user.social_twitter }}</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if user.social_linkedin %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fab fa-linkedin"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">LinkedIn</div>
+                                    <div class="ud-info-value text-truncate">
+                                        <a href="{{ user.social_linkedin }}" target="_blank" rel="noopener noreferrer">{{ user.social_linkedin }}</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+
+                {# ── Right column ── #}
+                <div class="col-12 col-lg-4">
+
+                    {# Info card #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Info</p>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-calendar-plus"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Member since</div>
+                                    <div class="ud-info-value">{{ user.created_at.strftime('%B %d, %Y') if user.created_at else '—' }}</div>
+                                </div>
+                            </div>
+
+                            {% if user.phone %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-phone"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Phone</div>
+                                    <div class="ud-info-value">{{ user.phone }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if user.company %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-building"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Company</div>
+                                    <div class="ud-info-value">{{ user.company }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if user.location %}
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-location-dot"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Location</div>
+                                    <div class="ud-info-value">{{ user.location }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                        </div>
+                    </div>
+
+                    {# Comment Activity card #}
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="ud-section-title"><i class="fas fa-comments me-1"></i>Comment Activity</p>
+
+                            <div v-if="stats_loading" class="text-center py-2">
+                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                            </div>
+
+                            <div v-else-if="comment_stats_all_zero" class="cm-stats-empty" style="height:80px;">
+                                No comments yet
+                            </div>
+
+                            <div v-else class="cm-stats-chart">
+                                <div
+                                    v-for="s in comment_stats"
+                                    :key="s.month"
+                                    class="cm-stats-bar"
+                                    :class="{ 'cm-stats-bar-zero': s.count === 0 }"
+                                    :style="{ height: stats_bar_height(s.count) }"
+                                    :title="s.month + ': ' + s.count + ' comment' + (s.count === 1 ? '' : 's')">
+                                    <span class="cm-stats-tooltip">[[ s.month ]]: [[ s.count ]]</span>
+                                </div>
+                            </div>
+
+                            <p v-if="!stats_loading" style="font-size:.72rem; color:var(--text-muted); margin-top:.4rem; margin-bottom:0;">
+                                Last 12 months
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+    import { apiFetch } from '/static/js/constants.js'
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    const profile_user_id = {{ user.id }}
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            const comment_stats   = ref([])
+            const stats_loading   = ref(true)
+
+            const comment_stats_all_zero = computed(() =>
+                comment_stats.value.every(s => s.count === 0)
+            )
+
+            const stats_max = computed(() => {
+                const max = Math.max(...comment_stats.value.map(s => s.count), 1)
+                return max
+            })
+
+            function stats_bar_height(count) {
+                if (count === 0) return '4px'
+                const pct = Math.max(6, Math.round((count / stats_max.value) * 100))
+                return pct + '%'
+            }
+
+            async function loadStats() {
+                stats_loading.value = true
+                const res = await apiFetch('/api/comments/stats/user/' + profile_user_id)
+                if (res.ok) {
+                    const data = await res.json()
+                    comment_stats.value = data
+                }
+                stats_loading.value = false
+            }
+
+            onMounted(async () => {
+                await loadStats()
+                page_is_loading.value = true
+            })
+
+            return {
+                message_list, page_is_loading,
+                comment_stats, stats_loading,
+                comment_stats_all_zero, stats_bar_height,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

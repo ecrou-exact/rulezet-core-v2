@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block page_title %}Community Forum{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/comments/comments.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Forum</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title"><i class="fas fa-comments me-2"></i>Community Forum</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <comment-thread
+                                object-type="forum"
+                                :object-id="1"
+                                :can-create="can_create"
+                                :can-edit-own="can_edit"
+                                :can-delete-own="can_delete"
+                                :can-moderate="can_mod"
+                                :current-user-id="current_uid">
+                            </comment-thread>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import CommentThread from '/static/js/components/comments/comment-thread.js'
+
+    const can_create  = {{ 'true' if current_user.has_permission('comments.create') else 'false' }}
+    const can_edit    = {{ 'true' if current_user.has_permission('comments.edit_own') else 'false' }}
+    const can_delete  = {{ 'true' if current_user.has_permission('comments.delete_own') else 'false' }}
+    const can_mod     = {{ 'true' if current_user.has_permission('comments.moderate') or current_user.is_admin() else 'false' }}
+    const current_uid = {{ current_user.id }}
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, CommentThread },
+        setup() {
+            const page_is_loading = ref(false)
+
+            onMounted(async () => {
+                page_is_loading.value = true
+            })
+
+            return {
+                message_list, page_is_loading,
+                can_create, can_edit, can_delete, can_mod, current_uid,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

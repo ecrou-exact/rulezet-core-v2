@@ -1,0 +1,298 @@
+/*
+  admin/roles.css — Role management pages
+  Prefix: .role-
+*/
+
+/*---ROLE_BADGE_ICON---*/
+
+.role-badge-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .65rem;
+    flex-shrink: 0;
+}
+
+/*---COLOR_SWATCH---*/
+
+.role-color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--transition), box-shadow var(--transition);
+    flex-shrink: 0;
+}
+
+.role-color-swatch:hover {
+    transform: scale(1.15);
+}
+
+.role-color-swatch.is-selected {
+    box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px currentColor;
+}
+
+/*---ICON_PICKER---*/
+
+.role-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+    gap: .4rem;
+}
+
+.role-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: .75rem;
+    transition: all var(--transition);
+}
+
+.role-icon-btn:hover {
+    border-color: var(--brand-glow);
+    color: var(--brand);
+    background: var(--brand-dim);
+}
+
+.role-icon-btn.is-selected {
+    border-color: var(--brand-glow);
+    background: var(--brand-dim);
+    color: var(--brand);
+}
+
+/*---ROLE_PREVIEW_BADGE---*/
+
+.role-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .6rem;
+    border-radius: var(--radius-sm);
+    font-size: .78rem;
+    font-weight: 600;
+    transition: all var(--transition);
+}
+
+/*---ROLE_LIST---*/
+
+.role-badge-standard {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .5rem;
+    border-radius: var(--radius-sm);
+    font-size: .7rem;
+    font-weight: 600;
+    border: 1px solid currentColor;
+    opacity: .9;
+}
+
+.role-badge-admin {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .5rem;
+    border-radius: var(--radius-sm);
+    font-size: .7rem;
+    font-weight: 600;
+    background: var(--brand-dim);
+    color: var(--brand);
+    border: 1px solid var(--brand-glow);
+}
+
+.role-badge-readonly {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .5rem;
+    border-radius: var(--radius-sm);
+    font-size: .7rem;
+    font-weight: 600;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+/*---PERMISSION_GROUP---*/
+
+.role-perm-group {
+    margin-bottom: .75rem;
+}
+
+.role-perm-group-title {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    margin: 0 0 .5rem;
+}
+
+.role-perm-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .55rem .65rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+    margin-bottom: .4rem;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    user-select: none;
+}
+
+.role-perm-row:hover {
+    border-color: var(--brand-glow);
+    background: var(--brand-dim);
+}
+
+.role-perm-row.is-checked {
+    border-color: var(--brand-glow);
+    background: var(--brand-dim);
+}
+
+.role-perm-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .68rem;
+    flex-shrink: 0;
+    transition: background var(--transition), color var(--transition);
+}
+
+.role-perm-row.is-checked .role-perm-icon {
+    background: var(--brand-dim);
+    color: var(--brand);
+}
+
+.role-perm-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.role-perm-label {
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 .1rem;
+}
+
+.role-perm-desc {
+    font-size: .72rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.role-perm-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all var(--transition);
+    font-size: .6rem;
+    color: transparent;
+}
+
+.role-perm-row.is-checked .role-perm-check {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+}
+
+/*---ROLE_INFO_CARD---*/
+
+.role-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .6rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.role-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.role-toggle-label {
+    font-size: .83rem;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.role-toggle-desc {
+    font-size: .72rem;
+    color: var(--text-muted);
+    margin: .1rem 0 0;
+}
+
+.role-toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.role-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.role-toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+
+.role-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: transform var(--transition), background var(--transition);
+}
+
+.role-toggle-switch input:checked + .role-toggle-track {
+    background: var(--brand-dim);
+    border-color: var(--brand-glow);
+}
+
+.role-toggle-switch input:checked + .role-toggle-track::after {
+    transform: translateX(16px);
+    background: var(--brand);
+}

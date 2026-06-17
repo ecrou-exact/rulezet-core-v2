@@ -1,0 +1,159 @@
+/*
+  utils/error.css — Error page component styles
+  Prefix: .error-
+*/
+
+/*---ERROR_PAGE---*/
+
+.error-page {
+    min-height: calc(100vh - var(--topbar-height) - var(--footer-height));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/*---ERROR_BG---*/
+
+.error-bg-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    animation: errorBlobDrift 14s ease-in-out infinite;
+}
+
+.error-bg-blob--1 {
+    width: 420px;
+    height: 420px;
+    background: var(--brand-dim);
+    top: -120px;
+    right: -100px;
+    animation-delay: 0s;
+}
+
+.error-bg-blob--2 {
+    width: 320px;
+    height: 320px;
+    background: var(--brand-dim);
+    bottom: -80px;
+    left: -80px;
+    animation-delay: -7s;
+}
+
+/*---ERROR_CARD---*/
+
+.error-card {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    animation: errorEnter .55s var(--ease) both;
+    max-width: 460px;
+    width: 100%;
+}
+
+/*---ERROR_CODE---*/
+
+.error-code-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 1.75rem;
+}
+
+.error-code-glow {
+    position: absolute;
+    inset: -24px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--brand-glow) 0%, transparent 68%);
+    animation: errorPulse 3.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.error-code {
+    font-family: var(--font-display);
+    font-size: 9.5rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    background: linear-gradient(120deg, var(--brand) 0%, var(--text-main) 65%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+    animation: errorFloat 4s ease-in-out infinite;
+    position: relative;
+    user-select: none;
+}
+
+/*---ERROR_TEXT---*/
+
+.error-title {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 .5rem;
+    letter-spacing: -0.02em;
+}
+
+.error-desc {
+    color: var(--text-muted);
+    font-size: .9rem;
+    margin: 0 0 2rem;
+    line-height: 1.65;
+}
+
+/*---ERROR_BUTTON---*/
+
+.error-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .6rem 1.4rem;
+    border-radius: var(--radius-md);
+    background: var(--brand);
+    color: #fff;
+    font-size: .875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 4px 14px var(--brand-glow);
+}
+
+.error-btn:hover {
+    opacity: .88;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--brand-glow);
+    color: #fff;
+}
+
+/*---ANIMATIONS---*/
+
+@keyframes errorEnter {
+    from {
+        opacity: 0;
+        transform: translateY(28px) scale(.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes errorFloat {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-14px); }
+}
+
+@keyframes errorPulse {
+    0%, 100% { transform: scale(1);    opacity: 1; }
+    50%       { transform: scale(1.35); opacity: .3; }
+}
+
+@keyframes errorBlobDrift {
+    0%, 100% { transform: translate(0, 0)      scale(1); }
+    33%       { transform: translate(45px, -35px) scale(1.07); }
+    66%       { transform: translate(-28px, 22px) scale(.93); }
+}

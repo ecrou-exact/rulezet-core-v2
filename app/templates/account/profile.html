@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+{% from 'macros/_role_badge.html' import role_badge %}
+{% block page_title %}{{ user.first_name }} {{ user.last_name }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Account</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">My Profile</h1>
+            </div>
+            <div class="page-actions">
+                <a href="{{ url_for('account.edit_user') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-pen me-1"></i>Edit profile
+                </a>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            {# ── Profile header ── #}
+            <div class="profile-header">
+                <div class="profile-header-banner"></div>
+                <div class="profile-header-body">
+
+                    {# Avatar #}
+                    <div class="profile-avatar-wrapper">
+                        {% if user.avatar_filename %}
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar_filename) }}"
+                             alt="{{ user.first_name }}"
+                             class="profile-avatar"
+                             id="profileAvatarImg">
+                        {% else %}
+                        <div class="profile-avatar-initials" id="profileAvatarInitials">
+                            {{ user.initials() }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# Name & meta #}
+                    <div class="profile-info">
+                        <h2 class="profile-name">{{ user.first_name }} {{ user.last_name }}</h2>
+                        {% if user.username %}
+                        <p class="profile-handle">@{{ user.username }}</p>
+                        {% endif %}
+                        <div class="profile-meta">
+                            {% if user.job_title %}
+                            <span class="profile-meta-item">
+                                <i class="fas fa-briefcase"></i>
+                                {{ user.job_title }}{% if user.company %} at {{ user.company }}{% endif %}
+                            </span>
+                            {% endif %}
+                            {% if user.location %}
+                            <span class="profile-meta-item">
+                                <i class="fas fa-location-dot"></i>{{ user.location }}
+                            </span>
+                            {% endif %}
+                            {% if user.created_at %}
+                            <span class="profile-meta-item">
+                                <i class="fas fa-calendar"></i>
+                                Member since {{ user.created_at.strftime('%B %Y') }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="profile-header-actions">
+                        <!-- <span class="account-role-chip {% if user.is_admin() %}admin{% endif %}">
+                            <i class="fas fa-shield-halved" style="font-size:.6rem;"></i>
+                            {{ user.role.name if user.role else 'User' }}
+                        </span> -->
+                        {{ role_badge(current_user.role) }}
+                    </div>
+                </div>
+            </div>
+
+            {# ── Content grid ── #}
+            <div class="row g-3">
+
+                {# Left column #}
+                <div class="col-12 col-lg-8">
+
+                    {# Bio #}
+                    {% if user.bio %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="profile-section-title">About</p>
+                            <p class="profile-bio">{{ user.bio }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Contact & social #}
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="profile-section-title">Contact & Social</p>
+
+                            <div class="mb-3">
+                                {# Email #}
+                                <div class="profile-info-row">
+                                    <div class="profile-info-icon"><i class="fas fa-envelope"></i></div>
+                                    <div style="flex:1;min-width:0;">
+                                        <div class="profile-info-label">Email</div>
+                                        <div class="profile-info-value">{{ user.email }}</div>
+                                    </div>
+                                </div>
+                                {# Phone #}
+                                {% if user.phone %}
+                                <div class="profile-info-row">
+                                    <div class="profile-info-icon"><i class="fas fa-phone"></i></div>
+                                    <div style="flex:1;min-width:0;">
+                                        <div class="profile-info-label">Phone</div>
+                                        <div class="profile-info-value">{{ user.phone }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {# Website #}
+                                {% if user.website %}
+                                <div class="profile-info-row">
+                                    <div class="profile-info-icon"><i class="fas fa-globe"></i></div>
+                                    <div style="flex:1;min-width:0;">
+                                        <div class="profile-info-label">Website</div>
+                                        <div class="profile-info-value">
+                                            <a href="{{ user.website }}" target="_blank" rel="noopener">
+                                                {{ user.website | replace('https://', '') | replace('http://', '') | truncate(40) }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {# Social pills #}
+                            {% set has_social = user.social_twitter or user.social_github or user.social_linkedin %}
+                            {% if has_social %}
+                            <div class="social-links">
+                                {% if user.social_twitter %}
+                                <a href="https://twitter.com/{{ user.social_twitter }}" target="_blank" rel="noopener" class="social-pill">
+                                    <i class="fab fa-x-twitter"></i>@{{ user.social_twitter }}
+                                </a>
+                                {% endif %}
+                                {% if user.social_github %}
+                                <a href="https://github.com/{{ user.social_github }}" target="_blank" rel="noopener" class="social-pill">
+                                    <i class="fab fa-github"></i>{{ user.social_github }}
+                                </a>
+                                {% endif %}
+                                {% if user.social_linkedin %}
+                                <a href="{{ user.social_linkedin }}" target="_blank" rel="noopener" class="social-pill">
+                                    <i class="fab fa-linkedin"></i>LinkedIn
+                                </a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if not user.phone and not user.website and not has_social %}
+                            <p class="text-muted small mb-0">
+                                No contact info yet.
+                                <a href="{{ url_for('account.edit_user') }}">Add some →</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+
+                {# Right column #}
+                <div class="col-12 col-lg-4">
+
+                    {# Account info #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="profile-section-title">Account</p>
+                            <div class="profile-info-row">
+                                <div class="profile-info-icon"><i class="fas fa-id-badge"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="profile-info-label">User ID</div>
+                                    <div class="profile-info-value">
+                                        <code style="font-size:.78rem;">#{{ user.id }}</code>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if user.username %}
+                            <div class="profile-info-row">
+                                <div class="profile-info-icon"><i class="fas fa-at"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="profile-info-label">Username</div>
+                                    <div class="profile-info-value">@{{ user.username }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="profile-info-row">
+                                <div class="profile-info-icon"><i class="fas fa-shield-halved"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="profile-info-label">Role</div>
+                                    <div class="profile-info-value">{{ user.role.name if user.role else 'User' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# API Key #}
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="profile-section-title">API Key</p>
+                            <div class="api-key-row mb-2">
+                                <code class="api-key-code blurred" id="api-key">{{ user.api_key }}</code>
+                                <div class="api-key-actions">
+                                    <button class="btn-icon" id="toggle-api-key"
+                                            data-visible="false" title="Show / hide">
+                                        <i class="fas fa-eye" style="font-size:.75rem;"></i>
+                                    </button>
+                                    <button class="btn-icon" title="Copy" onclick="copyApiKey(event)">
+                                        <i class="fas fa-copy" style="font-size:.75rem;"></i>
+                                    </button>
+                                    <button class="btn-icon" title="Regenerate" onclick="reloadApiKey()"
+                                            id="reload-key-btn">
+                                        <i class="fas fa-rotate" style="font-size:.75rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-0">
+                                <i class="fas fa-triangle-exclamation me-1" style="color:var(--brand);"></i>
+                                Keep this secret. Regenerating will invalidate the current key.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    // to have access to these in non-vue functions like copyApiKey
+    window.create_message = create_message;
+    window.TOAST = TOAST;
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            onMounted(() => { page_is_loading.value = true })
+            return { message_list, page_is_loading }
+        }
+    }).mount('#main-container')
+</script>
+
+<script>
+function copyApiKey(event) {
+    const key = document.getElementById('api-key')?.textContent?.trim();
+    if (!key) return;
+    const btn = event.currentTarget;
+    const icon = btn.querySelector('i');
+
+    navigator.clipboard.writeText(key).then(() => {
+        if (icon) {
+            const originalClass = icon.className; 
+            icon.className = 'fas fa-check';
+            icon.style.color = 'var(--brand)';
+            
+            setTimeout(() => {
+                icon.className = originalClass; 
+                icon.style.color = '';
+            }, 1500);
+        }
+        create_message('API key copied to clipboard', TOAST.SUCCESS);
+    }).catch(err => {
+        create_message('Error copying API key', TOAST.ERROR);
+    });
+}
+
+function reloadApiKey() {
+    if (!confirm('Regenerate your API key? The current key will stop working immediately.')) return
+    const csrf = document.getElementById('csrf_token')?.value
+    const btn  = document.getElementById('reload-key-btn')
+    const icon = btn.querySelector('i')
+    icon.className = 'fas fa-rotate fa-spin'
+
+    fetch('/account/reload-api-key', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf }
+    })
+    .then(r => r.json())
+    .then(data => {
+        icon.className = 'fas fa-rotate'
+        if (data.api_key) {
+            document.getElementById('api-key').textContent = data.api_key
+            // Reset blur
+            const keyEl = document.getElementById('api-key')
+            keyEl.classList.add('blurred')
+            const toggleBtn = document.getElementById('toggle-api-key')
+            toggleBtn.setAttribute('data-visible', 'false')
+            toggleBtn.querySelector('i').className = 'fas fa-eye'
+        }
+        create_message('API key regenerated', TOAST.SUCCESS)
+    })
+    .catch(() => { icon.className = 'fas fa-rotate' })
+}
+</script>
+{% endblock %}

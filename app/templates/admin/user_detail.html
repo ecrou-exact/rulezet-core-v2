@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ user.first_name }} {{ user.last_name }} — Admin{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/user_detail.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+{# ECharts — loaded only on this page #}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        {# ── Page header ── #}
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="/admin/users">Admin / Users</a></li>
+                        <li class="breadcrumb-item active">{{ user.first_name }} {{ user.last_name }}</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">[[ user_data.first_name ]] [[ user_data.last_name ]]</h1>
+            </div>
+            <div class="page-actions">
+                <a href="/admin/users" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back
+                </a>
+                <button v-if="can_edit" class="btn btn-sm btn-primary" @click="show_edit = true">
+                    <i class="fas fa-pen me-1"></i>Edit
+                </button>
+            </div>
+        </div>
+
+        {# ── Main grid ── #}
+        <div class="page-body">
+            <div class="row g-3">
+
+                {# ── Left column ── #}
+                <div class="col-12 col-lg-8">
+
+                    {# Profile header card #}
+                    <div class="ud-profile-header mb-3">
+                        <div class="ud-profile-banner"></div>
+                        <div class="ud-profile-body">
+                            <div class="ud-avatar-wrap">
+                                <img v-if="user_data.avatar_filename"
+                                     :src="'/static/uploads/avatars/' + user_data.avatar_filename"
+                                     :alt="user_data.first_name"
+                                     class="ud-avatar">
+                                <div v-else class="ud-avatar-initials">
+                                    [[ initials ]]
+                                </div>
+                            </div>
+                            <div class="ud-profile-info">
+                                <h2 class="ud-profile-name">[[ user_data.first_name ]] [[ user_data.last_name ]]</h2>
+                                <p v-if="user_data.username" class="ud-profile-handle">@[[ user_data.username ]]</p>
+                                <div class="ud-profile-meta">
+                                    <span v-if="user_data.job_title" class="ud-profile-meta-item">
+                                        <i class="fas fa-briefcase" style="font-size:.65rem;"></i>
+                                        [[ user_data.job_title ]][[ user_data.company ? ' at ' + user_data.company : '' ]]
+                                    </span>
+                                    <span v-if="user_data.location" class="ud-profile-meta-item">
+                                        <i class="fas fa-location-dot" style="font-size:.65rem;"></i>
+                                        [[ user_data.location ]]
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Account info card #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Account info</p>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-envelope"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Email</div>
+                                    <div class="ud-info-value">[[ user_data.email ]]</div>
+                                </div>
+                            </div>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-shield-halved"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Role</div>
+                                    <div class="ud-info-value">
+                                        <role-badge
+                                            :name="user_data.role_name || 'No role'"
+                                            :color="user_data.role_color || 'gray'"
+                                            :icon="user_data.role_icon || 'fa-user'"
+                                            :href="role_href">
+                                        </role-badge>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-circle-check"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Verification</div>
+                                    <div class="ud-info-value">
+                                        <span class="ud-badge" :class="user_data.is_verified ? 'ud-badge--verified' : 'ud-badge--unverified'">
+                                            <i :class="user_data.is_verified ? 'fas fa-shield-check' : 'fas fa-shield-xmark'"></i>
+                                            [[ user_data.is_verified ? 'Verified' : 'Pending' ]]
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-calendar-plus"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Member since</div>
+                                    <div class="ud-info-value">[[ formatDate(user_data.created_at) ]]</div>
+                                </div>
+                            </div>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-clock"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">Last seen</div>
+                                    <div class="ud-info-value">[[ user_data.last_seen_at ? formatDate(user_data.last_seen_at) : 'Never' ]]</div>
+                                </div>
+                            </div>
+
+                            <div class="ud-info-row">
+                                <div class="ud-info-icon"><i class="fas fa-hashtag"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ud-info-label">User ID</div>
+                                    <div class="ud-info-value">
+                                        <code style="font-size:.78rem;">#[[ user_data.id ]]</code>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {# Activity chart card #}
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="ud-section-title">Activity — last 30 days</p>
+                            <div v-if="activity_loading" class="text-center text-muted py-3" style="font-size:.8rem;">
+                                <i class="fas fa-circle-notch fa-spin me-1"></i>Loading…
+                            </div>
+                            <div v-else>
+                                <div id="ud-activity-chart" class="ud-chart-wrap"></div>
+                                <div class="ud-chart-stats">
+                                    <div class="ud-chart-stat">
+                                        <span class="ud-chart-stat-value">[[ activity.total_events ]]</span>
+                                        <span class="ud-chart-stat-label">Total events</span>
+                                    </div>
+                                    <div class="ud-chart-stat">
+                                        <span class="ud-chart-stat-value">[[ activity.total_logins ]]</span>
+                                        <span class="ud-chart-stat-label">Logins</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {# ── Right column ── #}
+                <div class="col-12 col-lg-4">
+
+                    {# Quick actions card — requires users.edit #}
+                    <div v-if="can_edit" class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Quick actions</p>
+                            <div class="ud-actions-list">
+
+                                <button class="ud-action-btn" @click="show_edit = true">
+                                    <span class="ud-action-icon"><i class="fas fa-pen"></i></span>
+                                    Edit user
+                                </button>
+
+                                <button class="ud-action-btn ud-action-btn--warning" @click="toggleVerified">
+                                    <span class="ud-action-icon ud-action-btn--warning">
+                                        <i :class="user_data.is_verified ? 'fas fa-shield' : 'fas fa-shield-check'"></i>
+                                    </span>
+                                    [[ user_data.is_verified ? 'Revoke verification' : 'Verify user' ]]
+                                </button>
+
+                                <button class="ud-action-btn ud-action-btn--danger" @click="disconnectUser">
+                                    <span class="ud-action-icon ud-action-btn--danger">
+                                        <i class="fas fa-plug-circle-xmark"></i>
+                                    </span>
+                                    Force disconnect
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Recent logs card — requires logs.view #}
+                    <div v-if="can_view_logs" class="card">
+                        <div class="card-body">
+                            <p class="ud-section-title">Recent activity</p>
+                            <div v-if="logs_loading" class="text-center text-muted py-3" style="font-size:.8rem;">
+                                <i class="fas fa-circle-notch fa-spin me-1"></i>Loading…
+                            </div>
+                            <div v-else-if="!recent_logs.length" class="text-muted" style="font-size:.8rem;">
+                                No activity recorded.
+                            </div>
+                            <div v-else>
+                                <div v-for="log in recent_logs" :key="log.id" class="ud-log-row">
+                                    <span class="ud-log-level" :class="'ud-log-level--' + log.level"></span>
+                                    <span class="ud-log-title">[[ log.title ]]</span>
+                                    <span class="ud-log-time">[[ formatDate(log.created_at) ]]</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Modals ── #}
+    <modal-edit-user
+        v-if="can_edit"
+        :visible="show_edit"
+        :user="user_data"
+        :roles="roles_list"
+        @close="show_edit = false"
+        @saved="onSaved">
+    </modal-edit-user>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted, nextTick } = Vue
+    import { message_list, create_message, display_toast } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar     from '/static/js/components/loading-bar.js'
+    import ModalEditUser  from '/static/js/components/modals/modal-edit-user.js'
+    import BaseModal      from '/static/js/components/modals/base-modal.js'
+    import RoleBadge      from '/static/js/components/role-badge.js'
+
+    /* global hasPerm, USER_PERMS */
+    // ── Permissions ──────────────────────────────────────────────────────────
+    const can_edit      = hasPerm('users.edit')
+    const can_view_logs = hasPerm('logs.view')
+
+    // ── Jinja-injected data ──────────────────────────────────────────────────
+    const USER_ID = {{ user.id }}
+
+    const _initial_user = {
+        id:              {{ user.id }},
+        first_name:      '{{ user.first_name | e }}',
+        last_name:       '{{ user.last_name | e }}',
+        email:           '{{ user.email | e }}',
+        username:        '{{ user.username | e if user.username else "" }}',
+        role_id:         {{ user.role_id if user.role_id else 'null' }},
+        role_name:       '{{ user.role.name  | e if user.role else "" }}',
+        role_color:      '{{ user.role.color | e if user.role else "gray" }}',
+        role_icon:       '{{ user.role.icon  | e if user.role else "fa-user" }}',
+        is_admin:        {{ 'true' if user.is_admin() else 'false' }},
+        is_verified:     {{ 'true' if user.is_verified else 'false' }},
+        avatar_filename: '{{ user.avatar_filename | e if user.avatar_filename else "" }}',
+        bio:             '{{ user.bio | e if user.bio else "" }}',
+        job_title:       '{{ user.job_title | e if user.job_title else "" }}',
+        company:         '{{ user.company | e if user.company else "" }}',
+        location:        '{{ user.location | e if user.location else "" }}',
+        created_at:      '{{ user.created_at.isoformat() if user.created_at else "" }}',
+        last_seen_at:    '{{ user.last_seen_at.isoformat() if user.last_seen_at else "" }}',
+    }
+
+    const _roles = [
+        {% for r in roles %}
+        { id: {{ r.id }}, name: '{{ r.name | e }}', admin: {{ 'true' if r.admin else 'false' }} },
+        {% endfor %}
+    ]
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, ModalEditUser, BaseModal, RoleBadge },
+
+        setup() {
+            const page_is_loading = ref(false)
+            const user_data       = ref({ ..._initial_user })
+            const roles_list      = ref(_roles)
+            const show_edit       = ref(false)
+
+            // Activity
+            const activity_loading = ref(true)
+            const activity = ref({ daily: [], total_events: 0, total_logins: 0, last_seen: null })
+
+            // Recent logs
+            const logs_loading = ref(true)
+            const recent_logs  = ref([])
+
+            // Role link — only if current viewer has admin.roles permission
+            const role_href = computed(() => {
+                if (!user_data.value.role_id) return null
+                return hasPerm('admin.roles') ? `/admin/roles/${user_data.value.role_id}` : null
+            })
+
+            // Computed
+            const initials = computed(() => {
+                const f = (user_data.value.first_name || ' ')[0].toUpperCase()
+                const l = (user_data.value.last_name  || ' ')[0].toUpperCase()
+                return f + l
+            })
+
+            // ── Init ───────────────────────────────────────────────────────
+            async function init() {
+                const tasks = [fetchActivity()]
+                if (can_view_logs) tasks.push(fetchRecentLogs())
+                await Promise.all(tasks)
+                page_is_loading.value = true
+            }
+
+            onMounted(() => init())
+
+            // ── Activity fetch + chart ─────────────────────────────────────
+            async function fetchActivity() {
+                activity_loading.value = true
+                try {
+                    const res = await apiFetch(`/api/account/user-activity/${USER_ID}`)
+                    if (res.ok) {
+                        activity.value = await res.json()
+                        await nextTick()
+                        initChart(activity.value.daily)
+                    }
+                } finally {
+                    activity_loading.value = false
+                }
+            }
+
+            function initChart(daily) {
+                const el = document.getElementById('ud-activity-chart')
+                if (!el || typeof echarts === 'undefined') return
+
+                const chart = echarts.init(el, null, { renderer: 'canvas' })
+
+                // Detect CSS variable values for theming
+                const style   = getComputedStyle(document.documentElement)
+                const brand   = style.getPropertyValue('--brand').trim()  || '#6366f1'
+                const textMut = style.getPropertyValue('--text-muted').trim() || '#94a3b8'
+                const border  = style.getPropertyValue('--border').trim() || '#e2e8f0'
+
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        formatter: (params) => {
+                            const p = params[0]
+                            return `${p.axisValue}<br/><b>${p.value}</b> event${p.value !== 1 ? 's' : ''}`
+                        },
+                    },
+                    grid: { left: 8, right: 8, top: 8, bottom: 28, containLabel: true },
+                    xAxis: {
+                        type: 'category',
+                        data: daily.map(d => d.date.slice(5)),  // MM-DD
+                        axisLine:  { lineStyle: { color: border } },
+                        axisTick:  { show: false },
+                        axisLabel: {
+                            color: textMut,
+                            fontSize: 10,
+                            interval: 6,
+                        },
+                    },
+                    yAxis: {
+                        type: 'value',
+                        minInterval: 1,
+                        axisLabel: { color: textMut, fontSize: 10 },
+                        splitLine:  { lineStyle: { color: border } },
+                    },
+                    series: [{
+                        type: 'bar',
+                        data: daily.map(d => d.count),
+                        itemStyle: { color: brand, borderRadius: [3, 3, 0, 0] },
+                        emphasis:  { itemStyle: { opacity: .85 } },
+                    }],
+                })
+
+                window.addEventListener('resize', () => chart.resize())
+            }
+
+            // ── Recent logs ────────────────────────────────────────────────
+            async function fetchRecentLogs() {
+                logs_loading.value = true
+                try {
+                    const res = await apiFetch(`/api/log/?actor_id=${USER_ID}&per_page=10&page=1`)
+                    if (res.ok) {
+                        const data = await res.json()
+                        recent_logs.value = data.items || []
+                    }
+                } finally {
+                    logs_loading.value = false
+                }
+            }
+
+            // ── Quick actions ──────────────────────────────────────────────
+            async function toggleVerified() {
+                const res = await apiFetch(`/api/account/${USER_ID}/toggle-verified`, 'POST')
+                if (res.ok) {
+                    const data = await res.json()
+                    user_data.value.is_verified = data.is_verified
+                    await create_message(
+                        data.is_verified ? 'User verified' : 'Verification revoked',
+                        data.is_verified ? TOAST.SUCCESS : TOAST.WARNING,
+                        false
+                    )
+                } else {
+                    await display_toast(res)
+                }
+            }
+
+            async function disconnectUser() {
+                if (!confirm('Force disconnect this user? They will be logged out on their next request.')) return
+                const res = await apiFetch(`/api/account/${USER_ID}/disconnect`, 'POST')
+                if (res.ok) {
+                    await create_message('User disconnected', TOAST.SUCCESS, false)
+                } else {
+                    await display_toast(res)
+                }
+            }
+
+            // ── After modal save ───────────────────────────────────────────
+            function onSaved(updated) {
+                const role = _roles.find(r => r.id === updated.role_id)
+                user_data.value = {
+                    ...user_data.value,
+                    first_name:  updated.first_name,
+                    last_name:   updated.last_name,
+                    email:       updated.email,
+                    username:    updated.username,
+                    role_id:     updated.role_id,
+                    role_name:   updated.role_name || (role ? role.name : ''),
+                    is_admin:    updated.is_admin  ?? (role ? role.admin : false),
+                    is_verified: updated.is_verified,
+                }
+            }
+
+            // ── Utils ──────────────────────────────────────────────────────
+            function formatDate(val) {
+                if (!val) return '—'
+                try {
+                    return new Date(val).toLocaleDateString(undefined, {
+                        year: 'numeric', month: 'short', day: 'numeric',
+                    })
+                } catch { return val }
+            }
+
+            return {
+                message_list, page_is_loading,
+                can_edit, can_view_logs,
+                user_data, roles_list, initials, role_href,
+                show_edit, onSaved,
+                activity_loading, activity,
+                logs_loading, recent_logs,
+                toggleVerified, disconnectUser,
+                formatDate,
+            }
+        },
+    }).mount('#main-container')
+</script>
+{% endblock %}

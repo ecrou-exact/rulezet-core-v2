@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block page_title %}Verify your account{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+<style>
+.verify-code-input {
+    font-family: var(--font-mono);
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: .5rem;
+    text-align: center;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: .6rem 1rem;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    width: 100%;
+    transition: border-color .15s;
+}
+.verify-code-input:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-dim);
+}
+.verify-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--brand-dim);
+    color: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+    <div v-if="page_is_loading">
+        <div class="page-body">
+            <div class="row justify-content-center">
+                <div class="col-12 col-sm-9 col-md-7 col-lg-5 col-xl-4">
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endwith %}
+
+                    <div class="card">
+                        <div class="card-body p-4">
+
+                            <div class="text-center mb-4">
+                                <div class="verify-icon">
+                                    <i class="fas fa-envelope-open-text"></i>
+                                </div>
+                                <h1 class="page-title" style="font-size:1.4rem;">Verify your account</h1>
+                                <p class="text-muted small mb-0">
+                                    We sent a 6-digit code to
+                                    <strong>{{ email }}</strong>.<br>
+                                    Enter it below to activate your account.
+                                </p>
+                            </div>
+
+                            <form method="post" action="{{ url_for('account.verify') }}" autocomplete="off">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                <div class="mb-4">
+                                    <input type="text"
+                                           name="code"
+                                           id="code"
+                                           class="verify-code-input"
+                                           maxlength="6"
+                                           pattern="[0-9]{6}"
+                                           inputmode="numeric"
+                                           autocomplete="one-time-code"
+                                           placeholder="000000"
+                                           autofocus
+                                           required>
+                                </div>
+
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-circle-check me-2"></i>Verify account
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div class="text-center mt-3">
+                                {% if expires_at %}
+                                <p class="text-muted small mb-2">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Code expires in 30 minutes.
+                                </p>
+                                {% endif %}
+                                <p class="text-muted small mb-2">Didn't receive an email?</p>
+                                <form method="post" action="{{ url_for('account.resend_verification') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-link btn-sm p-0" style="font-size:.8125rem;">
+                                        <i class="fas fa-rotate-right me-1"></i>Resend a new code
+                                    </button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            onMounted(async () => {
+                page_is_loading.value = true
+                // Auto-submit when 6 digits filled
+                const input = document.getElementById('code')
+                if (input) {
+                    input.addEventListener('input', () => {
+                        if (/^\d{6}$/.test(input.value)) {
+                            input.closest('form').submit()
+                        }
+                    })
+                }
+            })
+            return { message_list, page_is_loading }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

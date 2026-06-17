@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home/home.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/chart-viewer.css') }}">
+{% endblock %}
+
+{% block page_title %}Home{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <!-- HERO -->
+        <section class="home-hero">
+            <div class="home-hero-inner">
+                <div class="home-hero-badge">
+                    <i class="fas fa-rocket"></i>
+                    Flask Launchpad
+                </div>
+
+                <h1 class="home-hero-title">
+                    Stop building Flask apps<br>
+                    from scratch.
+                </h1>
+
+                <p class="home-hero-subtitle">
+                    Authentication, roles, REST APIs, feature flags,
+                    jobs, notifications, and admin tools — already built.
+                </p>
+
+                <div class="home-hero-actions">
+                    <a href="https://github.com/ecrou-exact/flask-launchpad"
+                       target="_blank"
+                       class="btn btn-primary">
+                        <i class="fab fa-github"></i>
+                        View Repo
+                    </a>
+
+                    <a href="/api/"
+                       target="_blank"
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-code"></i>
+                        API Docs
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHART DEMO -->
+        <section class="home-chart-section animate-on-scroll">
+            <div class="home-section-title">Project Activity</div>
+            <p class="home-section-subtitle">Live stats rendered with the built-in chart system.</p>
+            <chart-viewer
+                :data="chart_data"
+                :views="['line','bar','pie','table']"
+                :detail="true"
+                height="340px"
+            ></chart-viewer>
+        </section>
+
+        <!-- FEATURES -->
+        <section class="home-section">
+            <div class="home-section-title animate-on-scroll">Core Features</div>
+
+            <div class="row g-3">
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-shield-halved"></i></div>
+                        <h3>Authentication</h3>
+                        <p>Secure auth, roles, permissions.</p>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-code"></i></div>
+                        <h3>API First</h3>
+                        <p>REST API with Swagger.</p>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-bolt"></i></div>
+                        <h3>Feature Flags</h3>
+                        <p>Enable features without deploy.</p>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-gears"></i></div>
+                        <h3>Jobs</h3>
+                        <p>Async job tracking system.</p>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-palette"></i></div>
+                        <h3>Themes</h3>
+                        <p>Dark mode &amp; customization.</p>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="home-feature-card">
+                        <div class="home-feature-icon"><i class="fas fa-layer-group"></i></div>
+                        <h3>UI Kit</h3>
+                        <p>Reusable Vue components.</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ARCHITECTURE -->
+        <section class="home-section">
+            <div class="home-section-title animate-on-scroll">Architecture</div>
+
+            <div class="home-flow">
+                <span>Flask</span>
+                <i class="fas fa-arrow-right"></i>
+                <span>SQLAlchemy</span>
+                <i class="fas fa-arrow-right"></i>
+                <span>REST API</span>
+                <i class="fas fa-arrow-right"></i>
+                <span>Vue 3</span>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="home-cta animate-on-scroll">
+            <h2>Build features, not boilerplate.</h2>
+            <p>A production-ready Flask foundation.</p>
+
+            <a href="https://github.com/ecrou-exact/flask-launchpad"
+               class="btn btn-primary btn-lg">
+                Get Started
+            </a>
+        </section>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+const { createApp, ref, onMounted } = Vue
+import { message_list } from '/static/js/toaster.js'
+import LoadingBar from '/static/js/components/loading-bar.js'
+import ChartViewer from '/static/js/components/chart-viewer.js'
+
+createApp({
+    delimiters: ['[[', ']]'],
+    components: { LoadingBar, ChartViewer },
+
+    setup() {
+        const page_is_loading = ref(false)
+
+        const chart_data = ref({
+            title:      'Project Activity',
+            subtitle:   'Last 6 months',
+            categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            series: [
+                { name: 'Users',     values: [12, 19, 15, 28, 34, 41] },
+                { name: 'API Calls', values: [340, 520, 410, 690, 780, 920] },
+                { name: 'Features',  values: [4, 5, 6, 7, 8, 9] },
+                { name: 'Roles',     values: [2, 2, 3, 3, 4, 4] },
+            ],
+            meta: {
+                x_label: 'Month',
+                y_label: 'Count',
+            },
+        })
+
+        async function init() {
+            await new Promise(r => setTimeout(r, 200))
+            page_is_loading.value = true
+            setTimeout(() => {
+                setupScrollAnimations()
+                setupCardGlow()
+            }, 100)
+        }
+
+        function setupScrollAnimations() {
+            const els = document.querySelectorAll(
+                '.home-feature-card, .home-cta, .home-section-title, .home-chart-section'
+            )
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) e.target.classList.add('is-visible')
+                })
+            }, { threshold: 0.12 })
+            els.forEach(el => observer.observe(el))
+        }
+
+        function setupCardGlow() {
+            const cards = document.querySelectorAll('.home-feature-card')
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const r = card.getBoundingClientRect()
+                    card.style.setProperty('--x', `${e.clientX - r.left}px`)
+                    card.style.setProperty('--y', `${e.clientY - r.top}px`)
+                })
+            })
+        }
+
+        onMounted(init)
+
+        return { message_list, page_is_loading, chart_data }
+    }
+}).mount('#main-container')
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block page_title %}500 — Server error{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/utils/error.css') }}">
+{% endblock %}
+
+{% block content %}
+<error-page
+    code="500"
+    title="Internal server error"
+    description="Something went wrong on our end. Please try again later.">
+</error-page>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import ErrorPage from '/static/js/components/error-page.js'
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { ErrorPage },
+        setup() { return { message_list } },
+    }).mount('#main-container')
+</script>
+{% endblock %}

@@ -1,0 +1,1080 @@
+{% extends 'base.html' %}
+{% block page_title %}Server Settings{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site_settings/site_settings.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site_settings/database.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/file-tree.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/ansi-terminal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Server Settings</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Settings</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="row g-3">
+
+                {# ── Left column: SMTP + Session Key ── #}
+                <div class="col-12 col-xl-8">
+
+                    {# ── SMTP ── #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="ss-card-header">
+                                <div class="ss-card-icon">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">Email (SMTP)</h6>
+                                    <p class="ss-card-sub">Configuration saved to <code>.env</code> — applies immediately without restart.</p>
+                                </div>
+                                <div class="ms-auto d-flex align-items-center gap-2">
+                                    <span v-if="smtp.configured" class="ss-badge ss-badge--ok">
+                                        <i class="fas fa-circle-check me-1"></i>Configured
+                                    </span>
+                                    <span v-else class="ss-badge ss-badge--warn">
+                                        <i class="fas fa-circle-xmark me-1"></i>Not configured
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-1">
+                                <div class="col-12 col-md-8">
+                                    <label class="ss-label">SMTP Host</label>
+                                    <input v-model="smtp.smtp_host" type="text" class="form-control form-control-sm"
+                                           placeholder="smtp.example.com">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="ss-label">Port</label>
+                                    <input v-model="smtp.smtp_port" type="number" class="form-control form-control-sm"
+                                           placeholder="587">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="ss-label">SMTP Username (email)</label>
+                                    <input v-model="smtp.smtp_user" type="email" class="form-control form-control-sm"
+                                           placeholder="you@example.com">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="ss-label">Password</label>
+                                    <div class="ss-password-wrap">
+                                        <input v-model="smtp.smtp_password"
+                                               :type="show_smtp_pwd ? 'text' : 'password'"
+                                               class="form-control form-control-sm"
+                                               placeholder="Leave blank to keep current">
+                                        <button class="ss-eye-btn" type="button"
+                                                @click="show_smtp_pwd = !show_smtp_pwd"
+                                                :title="show_smtp_pwd ? 'Hide' : 'Show'">
+                                            <i :class="show_smtp_pwd ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-8">
+                                    <label class="ss-label">Sender address (optional)</label>
+                                    <input v-model="smtp.smtp_sender" type="email" class="form-control form-control-sm"
+                                           placeholder="noreply@example.com — defaults to username">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="ss-label">Encryption</label>
+                                    <select v-model="smtp.smtp_use_tls" class="form-select form-select-sm">
+                                        <option :value="true">STARTTLS (port 587)</option>
+                                        <option :value="false">SSL (port 465)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-3 flex-wrap align-items-end">
+                                <button class="btn btn-primary btn-sm"
+                                        :disabled="smtp_saving"
+                                        @click="saveSmtp">
+                                    <i class="fas fa-floppy-disk me-1"></i>
+                                    <span v-if="smtp_saving">Saving…</span>
+                                    <span v-else>Save configuration</span>
+                                </button>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <input v-model="test_email"
+                                           type="email"
+                                           class="form-control form-control-sm"
+                                           style="width:220px;"
+                                           placeholder="recipient@example.com"
+                                           :disabled="smtp_testing">
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            :disabled="smtp_testing || !test_email"
+                                            @click="testSmtp"
+                                            :title="'Send a test email to the address above'">
+                                        <i class="fas fa-paper-plane me-1"></i>
+                                        <span v-if="smtp_testing">Sending…</span>
+                                        <span v-else>Send test</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# ── Test log panel ── #}
+                            <div v-if="smtp_log.length > 0" class="ss-log-panel mt-3">
+                                <div class="ss-log-header">
+                                    <span><i class="fas fa-terminal me-1"></i>Test output</span>
+                                    <button class="ss-log-clear" @click="smtp_log = []" title="Clear">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <div class="ss-log-body">
+                                    <div v-for="(entry, i) in smtp_log" :key="i"
+                                         class="ss-log-line"
+                                         :class="{
+                                             'ss-log-line--ok':    entry.type === 'ok',
+                                             'ss-log-line--error': entry.type === 'error',
+                                             'ss-log-line--info':  entry.type === 'info',
+                                         }">
+                                        <span class="ss-log-time">[[ entry.time ]]</span>
+                                        <span class="ss-log-text">[[ entry.text ]]</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Session Key ── #}
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-2">
+                                <div class="ss-card-icon ss-card-icon--warn">
+                                    <i class="fas fa-key"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">Session Key</h6>
+                                    <p class="ss-card-sub">SECRET_KEY stored in <code>.env</code> — restart required to apply.</p>
+                                </div>
+                            </div>
+
+                            <div class="ss-key-display">
+                                <span class="ss-key-value">[[ sysinfo.secret_key_preview || '••••••••' ]]</span>
+                                <span v-if="sysinfo.secret_key_set" class="ss-badge ss-badge--ok ms-2">
+                                    <i class="fas fa-circle-check me-1"></i>Set
+                                </span>
+                                <span v-else class="ss-badge ss-badge--danger ms-2">
+                                    <i class="fas fa-circle-xmark me-1"></i>Not set
+                                </span>
+                            </div>
+
+                            <p class="text-muted small mt-2 mb-3">
+                                Regenerating the key will invalidate all active sessions and force every user to log in again.
+                            </p>
+
+                            <button class="btn btn-outline-warning btn-sm"
+                                    :disabled="key_regen_loading"
+                                    @click="regenKey">
+                                <i class="fas fa-rotate me-1"></i>
+                                <span v-if="key_regen_loading">Regenerating…</span>
+                                <span v-else>Regenerate session key</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {# ── Right column: Server Binding + System Info ── #}
+                <div class="col-12 col-xl-4">
+
+                    {# ── Server Binding ── #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon ss-card-icon--warn">
+                                    <i class="fas fa-network-wired"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">Server Binding</h6>
+                                    <p class="ss-card-sub">Saved to <code>.env</code> — app restarts automatically.</p>
+                                </div>
+                            </div>
+
+                            {# Current URL badge #}
+                            <div class="ss-server-current mb-3">
+                                <span class="ss-info-label">Listening at</span>
+                                <a :href="'http://' + srv.host + ':' + srv.port"
+                                   target="_blank" class="ss-server-url">
+                                    [[ 'http://' + srv.host + ':' + srv.port ]]
+                                    <i class="fas fa-arrow-up-right-from-square ms-1" style="font-size:.7em;"></i>
+                                </a>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="ss-label">Host</label>
+                                <select v-model="srv_host" class="form-select form-select-sm">
+                                    <option value="127.0.0.1">127.0.0.1 — localhost only</option>
+                                    <option value="0.0.0.0">0.0.0.0 — all interfaces (LAN / external)</option>
+                                    <option value="localhost">localhost</option>
+                                    <option value="custom">Custom…</option>
+                                </select>
+                                <input v-if="srv_host === 'custom'"
+                                       v-model="srv_host_custom"
+                                       type="text" class="form-control form-control-sm mt-1"
+                                       placeholder="e.g. 192.168.1.100"
+                                       spellcheck="false">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="ss-label">Port</label>
+                                <input v-model.number="srv_port" type="number"
+                                       class="form-control form-control-sm"
+                                       placeholder="7009" min="1024" max="65535">
+                            </div>
+
+                            {# Countdown / reconnect banner #}
+                            <div v-if="srv_countdown > 0" class="ss-server-reconnect mb-2">
+                                <i class="fas fa-rotate fa-spin me-1"></i>
+                                Restarting… reconnecting in [[ srv_countdown ]]s
+                                <a :href="srv_next_url" class="ss-server-reconnect-link ms-1">
+                                    [[ srv_next_url ]]
+                                </a>
+                            </div>
+
+                            <button class="btn btn-warning btn-sm w-100"
+                                    :disabled="srv_saving || srv_countdown > 0"
+                                    @click="saveServer">
+                                <i v-if="srv_saving" class="fas fa-spinner fa-spin me-1"></i>
+                                <i v-else class="fas fa-rotate me-1"></i>
+                                <span v-if="srv_saving">Saving…</span>
+                                <span v-else-if="srv_countdown > 0">Restarting…</span>
+                                <span v-else>Save &amp; Restart</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {# ── System Info ── #}
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon ss-card-icon--info">
+                                    <i class="fas fa-server"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">System Information</h6>
+                                </div>
+                            </div>
+
+                            <div v-if="info_loading" class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                            </div>
+
+                            <div v-else class="ss-info-grid">
+                                <div class="ss-info-row">
+                                    <span class="ss-info-label">Python</span>
+                                    <span class="ss-info-value">[[ sysinfo.python_version ]]</span>
+                                </div>
+                                <div class="ss-info-row">
+                                    <span class="ss-info-label">Flask</span>
+                                    <span class="ss-info-value">[[ sysinfo.flask_version ]]</span>
+                                </div>
+                                <div class="ss-info-row">
+                                    <span class="ss-info-label">Platform</span>
+                                    <span class="ss-info-value">[[ sysinfo.platform ]]</span>
+                                </div>
+                                <div class="ss-info-row">
+                                    <span class="ss-info-label">Environment</span>
+                                    <span class="ss-info-value">
+                                        <span class="ss-badge" :class="sysinfo.debug_mode ? 'ss-badge--warn' : 'ss-badge--ok'">
+                                            [[ sysinfo.env || '—' ]]
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="ss-info-row" style="align-items:flex-start;">
+                                    <span class="ss-info-label">Database</span>
+                                    <span class="ss-info-value ss-info-mono" style="word-break:break-all;">
+                                        [[ sysinfo.db_uri || '—' ]]
+                                    </span>
+                                </div>
+                                <div class="ss-info-row">
+                                    <span class="ss-info-label">SMTP</span>
+                                    <span class="ss-info-value">
+                                        <span class="ss-badge" :class="sysinfo.smtp_configured ? 'ss-badge--ok' : 'ss-badge--warn'">
+                                            [[ sysinfo.smtp_configured ? 'Configured' : 'Not configured' ]]
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# ── Packages Manager ── #}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon ss-card-icon--info">
+                                    <i class="fas fa-box"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">Python Packages</h6>
+                                    <p class="ss-card-sub">Manage installed packages in the current Python environment.</p>
+                                </div>
+                                <div class="ms-auto">
+                                    <span v-if="pkg_loading" class="text-muted small">
+                                        <i class="fas fa-spinner fa-spin me-1"></i>Loading…
+                                    </span>
+                                    <span v-else class="text-muted small">
+                                        [[ pkg_filtered.length ]] / [[ pkg_all.length ]] packages
+                                    </span>
+                                </div>
+                            </div>
+
+                            {# ── Install form ── #}
+                            <div class="d-flex gap-2 mb-3 flex-wrap align-items-end">
+                                <div style="flex:1; min-width:200px; max-width:320px;">
+                                    <label class="ss-label">Install new package</label>
+                                    <input v-model="pkg_install_name" type="text"
+                                           class="form-control form-control-sm"
+                                           placeholder="e.g. requests, flask-limiter"
+                                           @keyup.enter="installPackage">
+                                </div>
+                                <button class="btn btn-success btn-sm"
+                                        :disabled="pkg_install_loading || !pkg_install_name.trim()"
+                                        @click="installPackage">
+                                    <i class="fas fa-download me-1"></i>
+                                    <span v-if="pkg_install_loading">Installing…</span>
+                                    <span v-else>Install</span>
+                                </button>
+                            </div>
+
+                            {# ── Install log ── #}
+                            <ansi-terminal
+                                v-if="pkg_install_log.length > 0"
+                                :entries="pkg_install_log"
+                                title="pip install"
+                                :live="pkg_install_loading"
+                                class="mb-3"
+                                @clear="pkg_install_log.length = 0">
+                            </ansi-terminal>
+
+                            {# ── Search ── #}
+                            <div class="mb-2">
+                                <input v-model="pkg_search" type="text"
+                                       class="form-control form-control-sm"
+                                       placeholder="Search packages…"
+                                       style="max-width:300px;">
+                            </div>
+
+                            {# ── Package table ── #}
+                            <div v-if="pkg_loading" class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                            </div>
+                            <div v-else style="max-height:420px; overflow-y:auto;">
+                                <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+                                    <thead style="position:sticky; top:0; background-color: var(--bs-body-bg, #ffffff); z-index: 10;">
+                                        <tr>
+                                            <th style="width:55%;">Name</th>
+                                            <th style="width:25%;">Version</th>
+                                            <th style="width:20%;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="pkg_filtered.length === 0">
+                                            <td colspan="3" class="text-center text-muted py-3">No packages found</td>
+                                        </tr>
+                                        <tr v-for="pkg in pkg_filtered" :key="pkg.name">
+                                            <td style="font-family:var(--font-mono); color:var(--text-main);">[[ pkg.name ]]</td>
+                                            <td style="color:var(--text-secondary);">[[ pkg.version ]]</td>
+                                            <td>
+                                                <button class="btn btn-outline-secondary btn-sm"
+                                                        style="font-size:.7rem; padding:.15rem .5rem;"
+                                                        :disabled="pkg_updating === pkg.name"
+                                                        @click="updatePackage(pkg.name)">
+                                                    <span v-if="pkg_updating === pkg.name">
+                                                        <i class="fas fa-spinner fa-spin me-1"></i>
+                                                    </span>
+                                                    <span v-else>
+                                                        <i class="fas fa-arrow-up me-1"></i>Update
+                                                    </span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {# ── Update log ── #}
+                            <ansi-terminal
+                                v-if="pkg_update_log.length > 0"
+                                :entries="pkg_update_log"
+                                title="pip update"
+                                :live="!!pkg_updating"
+                                class="mt-3"
+                                @clear="pkg_update_log.length = 0">
+                            </ansi-terminal>
+                        </div>
+                    </div>
+                </div>
+
+                {# ── Git Submodules ── #}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon ss-card-icon--info">
+                                    <i class="fas fa-code-branch"></i>
+                                </div>
+                                <div>
+                                    <h6 class="ss-card-title">Git Submodules</h6>
+                                    <p class="ss-card-sub">View and update submodules, or add a new one from GitHub.</p>
+                                </div>
+                                <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            :disabled="sub_loading"
+                                            @click="loadSubmodules">
+                                        <i class="fas fa-arrows-rotate me-1"></i>Refresh
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            :disabled="sub_updating_all"
+                                            @click="updateAllSubmodules"
+                                            v-if="submodules.length > 0">
+                                        <i class="fas fa-cloud-arrow-down me-1"></i>
+                                        <span v-if="sub_updating_all">Queuing…</span>
+                                        <span v-else>Update all</span>
+                                    </button>
+                                    <button class="btn btn-sm btn-success" @click="openAddModal">
+                                        <i class="fas fa-plus me-1"></i>Add submodule
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# ── Table ── #}
+                            <div v-if="sub_loading" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                            </div>
+
+                            <div v-else-if="submodules.length === 0" class="ss-sub-empty">
+                                <i class="fas fa-code-branch"></i>
+                                <p>No submodules found in this repository.</p>
+                            </div>
+
+                            <div v-else style="overflow-x:auto;">
+                                <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Path</th>
+                                            <th>URL</th>
+                                            <th>Branch</th>
+                                            <th>Commit</th>
+                                            <th>Status</th>
+                                            <th style="width:160px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="sub in submodules" :key="sub.path">
+                                            <td style="font-weight:500; color:var(--text-main);">[[ sub.name ]]</td>
+                                            <td><code style="font-size:.75rem;">[[ sub.path ]]</code></td>
+                                            <td>
+                                                <a :href="sub.url" target="_blank" rel="noopener noreferrer"
+                                                   class="ss-sub-url" :title="sub.url">
+                                                    [[ sub.url.replace('https://github.com/', '').replace('.git', '') || sub.url ]]
+                                                </a>
+                                            </td>
+                                            <td><span v-if="sub.branch" class="ss-sub-branch">[[ sub.branch ]]</span><span v-else class="text-muted">—</span></td>
+                                            <td><code v-if="sub.commit" style="font-size:.72rem;">[[ sub.commit ]]</code><span v-else class="text-muted">—</span></td>
+                                            <td>
+                                                <span class="ss-sub-badge" :class="'ss-sub-badge--' + sub.status">
+                                                    <i :class="subStatusIcon(sub.status)"></i>
+                                                    [[ sub.status ]]
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex gap-1">
+                                                    <button class="btn btn-outline-secondary btn-sm"
+                                                            style="font-size:.7rem; padding:.15rem .5rem;"
+                                                            :disabled="sub_updating_path === sub.path || sub_removing_path === sub.path"
+                                                            @click="updateSubmodule(sub)">
+                                                        <i v-if="sub_updating_path === sub.path" class="fas fa-spinner fa-spin me-1"></i>
+                                                        <i v-else class="fas fa-cloud-arrow-down me-1"></i>
+                                                        Update
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary btn-sm"
+                                                            style="font-size:.7rem; padding:.15rem .5rem;"
+                                                            :class="{ active: sub_browse_path === sub.path }"
+                                                            @click="toggleBrowse(sub)">
+                                                        <i class="fas fa-folder-open"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger btn-sm"
+                                                            style="font-size:.7rem; padding:.15rem .5rem;"
+                                                            :disabled="sub_updating_path === sub.path || sub_removing_path === sub.path"
+                                                            @click="removeSubmodule(sub)">
+                                                        <i v-if="sub_removing_path === sub.path" class="fas fa-spinner fa-spin"></i>
+                                                        <i v-else class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {# ── File tree panel ── #}
+                            <div v-if="sub_browse_path" class="ss-filetree-panel mt-3">
+                                <div class="ss-filetree-header">
+                                    <i class="fas fa-folder-open me-1" style="color:#f59e0b;"></i>
+                                    <span>[[ sub_browse_path ]]</span>
+                                    <button class="ss-filetree-close ms-auto" @click="sub_browse_path = null" title="Close">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <div class="ss-filetree-body">
+                                    <file-tree
+                                        :nodes="sub_tree_nodes"
+                                        :loading="sub_tree_loading"
+                                        mode="read-plus"
+                                        :fetch-content="loadFileContent"
+                                        @select="onTreeSelect">
+                                    </file-tree>
+                                </div>
+                            </div>
+
+                            {# ── Add submodule modal ── #}
+                            <div v-if="show_add_modal" class="ss-modal-backdrop" @click.self="closeAddModal">
+                                <div class="ss-modal">
+                                    <div class="ss-modal-header">
+                                        <h6 class="mb-0"><i class="fas fa-plus me-2"></i>Add Git Submodule</h6>
+                                        <button class="btn-close btn-close-sm" @click="closeAddModal"></button>
+                                    </div>
+                                    <div class="ss-modal-body">
+                                        <div class="mb-3">
+                                            <label class="ss-label">Git URL <span class="text-danger">*</span></label>
+                                            <input v-model="add_url" type="text"
+                                                   class="form-control form-control-sm"
+                                                   :class="add_url_err ? 'is-invalid' : ''"
+                                                   placeholder="https://github.com/owner/repo.git"
+                                                   @input="onAddUrlInput">
+                                            <div v-if="add_url_err" class="invalid-feedback">[[ add_url_err ]]</div>
+                                            <div class="form-text">Supports https:// and git@ URLs.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="ss-label">Local path <span class="text-danger">*</span></label>
+                                            <div class="input-group input-group-sm" :class="add_path_err ? 'is-invalid' : ''">
+                                                <span class="input-group-text" style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted);">modules/</span>
+                                                <input v-model="add_path" type="text"
+                                                       class="form-control form-control-sm"
+                                                       :class="add_path_err ? 'is-invalid' : ''"
+                                                       placeholder="my-library"
+                                                       @input="onAddPathInput">
+                                            </div>
+                                            <div v-if="add_path_err" class="invalid-feedback d-block">[[ add_path_err ]]</div>
+                                            <div class="form-text">Name of the folder inside <code>modules/</code>.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="ss-label">Branch <span class="text-muted">(optional)</span></label>
+                                            <input v-model="add_branch" type="text"
+                                                   class="form-control form-control-sm"
+                                                   placeholder="main">
+                                            <div class="form-text">Leave blank to use the remote's default branch.</div>
+                                        </div>
+                                        <div class="alert alert-info p-2 mb-0" style="font-size:.8rem;">
+                                            <i class="fas fa-circle-info me-1"></i>
+                                            Adding a submodule will clone the repository and commit <code>.gitmodules</code> changes.
+                                            The operation runs as a background job — you can track its progress in the Jobs panel.
+                                        </div>
+                                    </div>
+                                    <div class="ss-modal-footer">
+                                        <button class="btn btn-secondary btn-sm" @click="closeAddModal">Cancel</button>
+                                        <button class="btn btn-primary btn-sm"
+                                                :disabled="sub_adding || !add_url.trim() || !add_path.trim()"
+                                                @click="submitAddSubmodule">
+                                            <i class="fas fa-spinner fa-spin me-1" v-if="sub_adding"></i>
+                                            <i class="fas fa-plus me-1" v-else></i>
+                                            <span v-if="sub_adding">Queuing…</span>
+                                            <span v-else>Add submodule</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import FileTree      from '/static/js/components/file-tree.js'
+    import AnsiTerminal from '/static/js/components/ansi-terminal.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, FileTree, AnsiTerminal },
+
+        setup() {
+            const page_is_loading = ref(false)
+            const info_loading    = ref(true)
+
+            const sysinfo = reactive({
+                python_version: '', flask_version: '', platform: '',
+                debug_mode: false, env: '', db_uri: '',
+                secret_key_preview: '', secret_key_set: false, smtp_configured: false,
+            })
+
+            const smtp = reactive({
+                smtp_host: '', smtp_port: '587', smtp_user: '',
+                smtp_password: '', smtp_sender: '', smtp_use_tls: true,
+                configured: false,
+            })
+
+            const show_smtp_pwd     = ref(false)
+            const smtp_saving       = ref(false)
+            const smtp_testing      = ref(false)
+            const key_regen_loading = ref(false)
+            const test_email        = ref('{{ current_user.email }}')
+            const smtp_log          = ref([])
+
+            // ── Packages ──────────────────────────────────────────────────────
+            const pkg_all            = ref([])
+            const pkg_loading        = ref(false)
+            const pkg_search         = ref('')
+            const pkg_install_name   = ref('')
+            const pkg_install_loading = ref(false)
+            const pkg_install_log    = ref([])
+            const pkg_update_log     = ref([])
+            const pkg_updating       = ref(null)  // name of package being updated
+
+            const pkg_filtered = computed(() => {
+                const q = pkg_search.value.trim().toLowerCase()
+                if (!q) return pkg_all.value
+                return pkg_all.value.filter(p => p.name.toLowerCase().includes(q))
+            })
+
+            // ── Server binding ────────────────────────────────────────────────
+            const KNOWN_HOSTS = ['127.0.0.1', '0.0.0.0', 'localhost']
+            const srv         = reactive({ host: '127.0.0.1', port: 7009 })
+            const srv_host    = ref('127.0.0.1')   // select value (may be 'custom')
+            const srv_host_custom = ref('')
+            const srv_port    = ref(7009)
+            const srv_saving  = ref(false)
+            const srv_countdown   = ref(0)
+            const srv_next_url    = ref('')
+            let   _countdownTimer = null
+
+            async function loadServer() {
+                const res = await apiFetch('/api/site-settings/server')
+                if (res.ok) {
+                    const d = await res.json()
+                    srv.host = d.host
+                    srv.port = d.port
+                    srv_host.value = KNOWN_HOSTS.includes(d.host) ? d.host : 'custom'
+                    srv_host_custom.value = KNOWN_HOSTS.includes(d.host) ? '' : d.host
+                    srv_port.value = d.port
+                }
+            }
+
+            async function saveServer() {
+                const host = srv_host.value === 'custom' ? srv_host_custom.value.trim() : srv_host.value
+                const port = srv_port.value
+                if (!host) { create_message('Host is required', TOAST.ERROR); return }
+                if (!port || port < 1024 || port > 65535) {
+                    create_message('Port must be between 1024 and 65535', TOAST.ERROR); return
+                }
+                srv_saving.value = true
+                const res = await apiFetch('/api/site-settings/server', 'POST', { host, port })
+                const d   = await res.json()
+                srv_saving.value = false
+                if (!res.ok) { create_message(d.message || 'Failed to save', TOAST.ERROR, true); return }
+
+                // Compute the URL the user will reconnect to
+                const displayHost = (host === '0.0.0.0') ? window.location.hostname : host
+                srv_next_url.value = `http://${displayHost}:${port}`
+                srv.host = host
+                srv.port = port
+
+                // Start countdown — app restarts after ~800ms, allow 8s for it to come back
+                srv_countdown.value = 8
+                _countdownTimer = setInterval(() => {
+                    srv_countdown.value--
+                    if (srv_countdown.value <= 0) {
+                        clearInterval(_countdownTimer)
+                        window.location.href = srv_next_url.value + window.location.pathname
+                    }
+                }, 1000)
+            }
+
+            // ── Submodules ────────────────────────────────────────────────────
+            const submodules        = ref([])
+            const sub_loading       = ref(false)
+            const sub_updating_all  = ref(false)
+            const sub_updating_path = ref(null)
+            const sub_removing_path = ref(null)
+            const sub_adding        = ref(false)
+            const show_add_modal    = ref(false)
+            const sub_browse_path   = ref(null)
+            const sub_tree_nodes    = ref([])
+            const sub_tree_loading  = ref(false)
+            const add_url           = ref('')
+            const add_path          = ref('')
+            const add_branch        = ref('')
+            const add_url_err       = ref('')
+            const add_path_err      = ref('')
+            const add_path_auto     = ref(true)  // true = path is still auto-derived from URL
+
+            onMounted(async () => {
+                await Promise.all([loadSystemInfo(), loadSmtp(), loadServer(), loadPackages(), loadSubmodules()])
+                page_is_loading.value = true
+            })
+
+            async function loadSystemInfo() {
+                info_loading.value = true
+                const res = await apiFetch('/api/site-settings/system')
+                if (res.ok) {
+                    const d = await res.json()
+                    Object.assign(sysinfo, d)
+                }
+                info_loading.value = false
+            }
+
+            async function loadSmtp() {
+                const res = await apiFetch('/api/site-settings/smtp')
+                if (res.ok) {
+                    const d = await res.json()
+                    smtp.smtp_host    = d.smtp_host    || ''
+                    smtp.smtp_port    = d.smtp_port    || '587'
+                    smtp.smtp_user    = d.smtp_user    || ''
+                    smtp.smtp_sender  = d.smtp_sender  || ''
+                    smtp.smtp_use_tls = d.smtp_use_tls !== false
+                    smtp.configured   = d.smtp_configured || false
+                }
+            }
+
+            async function loadPackages() {
+                pkg_loading.value = true
+                const res = await apiFetch('/api/site-settings/packages')
+                if (res.ok) {
+                    const d = await res.json()
+                    pkg_all.value = d.items || []
+                }
+                pkg_loading.value = false
+            }
+
+            async function saveSmtp() {
+                smtp_saving.value = true
+                const payload = {
+                    smtp_host:    smtp.smtp_host,
+                    smtp_port:    smtp.smtp_port,
+                    smtp_user:    smtp.smtp_user,
+                    smtp_sender:  smtp.smtp_sender,
+                    smtp_use_tls: smtp.smtp_use_tls ? '1' : '0',
+                }
+                if (smtp.smtp_password) payload.smtp_password = smtp.smtp_password
+                const res = await apiFetch('/api/site-settings/smtp', 'POST', payload)
+                const d   = await res.json()
+                if (res.ok) {
+                    smtp.smtp_password = ''
+                    await loadSmtp()
+                    await loadSystemInfo()
+                    create_message(d.message, TOAST.SUCCESS)
+                } else {
+                    create_message(d.message || 'Save failed', TOAST.ERROR, true)
+                }
+                smtp_saving.value = false
+            }
+
+            function _now() {
+                return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            }
+
+            function _log(text, type = 'info') {
+                smtp_log.value.push({ time: _now(), text, type })
+            }
+
+            function _pkg_log(log_ref, text, type = 'info') {
+                const level_map = { ok: 'success', error: 'error', info: 'info', warning: 'warning' }
+                log_ref.value.push({ ts: new Date().toISOString(), msg: text, level: level_map[type] || 'info' })
+            }
+
+            async function testSmtp() {
+                smtp_log.value = []
+                smtp_testing.value = true
+                _log('Starting SMTP test…', 'info')
+
+                const res = await apiFetch('/api/site-settings/smtp/test', 'POST', { to: test_email.value })
+                const d   = await res.json()
+
+                if (d.steps && Array.isArray(d.steps)) {
+                    for (const step of d.steps) {
+                        const isResult = step.startsWith('Result')
+                        const type = isResult ? (d.ok ? 'ok' : 'error') : 'info'
+                        _log(step, type)
+                    }
+                } else {
+                    _log(d.message || (res.ok ? 'Done' : 'Failed'), res.ok ? 'ok' : 'error')
+                }
+
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS)
+                } else {
+                    create_message(d.message || 'Test failed', TOAST.ERROR, true)
+                }
+                smtp_testing.value = false
+            }
+
+            async function regenKey() {
+                if (!confirm('This will invalidate all active sessions. Everyone will be logged out. Continue?')) return
+                key_regen_loading.value = true
+                const res = await apiFetch('/api/site-settings/session-key', 'POST', {})
+                const d   = await res.json()
+                if (res.ok) {
+                    await loadSystemInfo()
+                    create_message(d.message, TOAST.WARNING, true)
+                } else {
+                    create_message(d.message || 'Failed', TOAST.ERROR, true)
+                }
+                key_regen_loading.value = false
+            }
+
+            async function installPackage() {
+                const name = pkg_install_name.value.trim()
+                if (!name) return
+                pkg_install_log.value = []
+                pkg_install_loading.value = true
+                _pkg_log(pkg_install_log, `Installing ${name}…`, 'info')
+
+                const res = await apiFetch('/api/site-settings/packages/install', 'POST', { name })
+                const d   = await res.json()
+
+                if (d.message) {
+                    for (const line of d.message.split('\n').filter(l => l.trim())) {
+                        _pkg_log(pkg_install_log, line, res.ok ? 'ok' : 'error')
+                    }
+                }
+
+                if (res.ok) {
+                    pkg_install_name.value = ''
+                    await loadPackages()
+                    create_message(`Package "${name}" installed`, TOAST.SUCCESS)
+                } else {
+                    create_message(d.message || 'Install failed', TOAST.ERROR, true)
+                }
+                pkg_install_loading.value = false
+            }
+
+            // ── Submodule functions ───────────────────────────────────────────
+
+            async function loadSubmodules() {
+                sub_loading.value = true
+                const res = await apiFetch('/api/site-settings/submodules')
+                if (res.ok) {
+                    const d = await res.json()
+                    submodules.value = d.submodules || []
+                }
+                sub_loading.value = false
+            }
+
+            async function toggleBrowse(sub) {
+                if (sub_browse_path.value === sub.path) {
+                    sub_browse_path.value = null
+                    return
+                }
+                sub_browse_path.value  = sub.path
+                sub_tree_nodes.value   = []
+                sub_tree_loading.value = true
+                const res = await apiFetch('/api/site-settings/submodules/tree?path=' + encodeURIComponent(sub.path))
+                sub_tree_loading.value = false
+                if (res.ok) {
+                    const d = await res.json()
+                    sub_tree_nodes.value = d.tree || []
+                }
+            }
+
+            function onTreeSelect(node) { }
+
+            async function loadFileContent(node) {
+                const res = await apiFetch('/api/site-settings/submodules/file?path=' + encodeURIComponent(node.path))
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}))
+                    return { content: '', error: d.message || 'Failed to load file' }
+                }
+                const d = await res.json()
+                return { content: d.content || '' }
+            }
+
+            function subStatusIcon(status) {
+                return {
+                    'up-to-date':    'fas fa-circle-check',
+                    'out-of-date':   'fas fa-circle-arrow-up',
+                    'uninitialized': 'fas fa-circle-minus',
+                    'conflict':      'fas fa-circle-exclamation',
+                    'unknown':       'fas fa-circle-question',
+                }[status] || 'fas fa-circle-question'
+            }
+
+            function _jobLink(job) {
+                return { href: '/jobs/' + job.uuid, label: 'View job →', target: '_blank' }
+            }
+
+            async function updateSubmodule(sub) {
+                sub_updating_path.value = sub.path
+                const res = await apiFetch('/api/site-settings/submodules/update', 'POST', { path: sub.path })
+                const d   = await res.json()
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS, false, _jobLink(d.job))
+                } else {
+                    create_message(d.message || 'Failed to queue update', TOAST.ERROR, true)
+                }
+                sub_updating_path.value = null
+            }
+
+            async function updateAllSubmodules() {
+                if (!confirm('Update all submodules? This will pull the latest commits from each remote.')) return
+                sub_updating_all.value = true
+                const res = await apiFetch('/api/site-settings/submodules/update', 'POST', {})
+                const d   = await res.json()
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS, false, _jobLink(d.job))
+                } else {
+                    create_message(d.message || 'Failed to queue update', TOAST.ERROR, true)
+                }
+                sub_updating_all.value = false
+            }
+
+            async function removeSubmodule(sub) {
+                if (!confirm(`Remove submodule "${sub.name}" at "${sub.path}"?\n\nThis will deinit and unregister it from .gitmodules. The operation cannot be undone without re-adding it.`)) return
+                sub_removing_path.value = sub.path
+                const res = await apiFetch('/api/site-settings/submodules/remove', 'POST', { path: sub.path })
+                const d   = await res.json()
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS, false, _jobLink(d.job))
+                    await loadSubmodules()
+                } else {
+                    create_message(d.message || 'Failed to queue remove', TOAST.ERROR, true)
+                }
+                sub_removing_path.value = null
+            }
+
+            function _repoNameFromUrl(url) {
+                try {
+                    const clean = url.trim().replace(/\.git$/, '')
+                    const parts = clean.replace(':', '/').split('/')
+                    return parts[parts.length - 1] || ''
+                } catch { return '' }
+            }
+
+            function onAddUrlInput() {
+                add_url_err.value = ''
+                if (add_path_auto.value) {
+                    add_path.value = _repoNameFromUrl(add_url.value)
+                }
+            }
+
+            function onAddPathInput() {
+                add_path_err.value = ''
+                add_path_auto.value = add_path.value === '' || add_path.value === _repoNameFromUrl(add_url.value)
+            }
+
+            function openAddModal() {
+                add_url.value      = ''
+                add_path.value     = ''
+                add_branch.value   = ''
+                add_url_err.value  = ''
+                add_path_err.value = ''
+                add_path_auto.value = true
+                show_add_modal.value = true
+            }
+
+            function closeAddModal() {
+                show_add_modal.value = false
+            }
+
+            async function submitAddSubmodule() {
+                add_url_err.value  = ''
+                add_path_err.value = ''
+                const url    = add_url.value.trim()
+                const name   = add_path.value.trim()
+                const branch = add_branch.value.trim()
+                const path   = name ? 'modules/' + name : ''
+
+                if (!url)  { add_url_err.value  = 'URL is required'; return }
+                if (!name) { add_path_err.value = 'Folder name is required'; return }
+
+                sub_adding.value = true
+                const res = await apiFetch('/api/site-settings/submodules', 'POST', { url, path, branch })
+                const d   = await res.json()
+
+                if (res.ok) {
+                    closeAddModal()
+                    create_message(d.message, TOAST.SUCCESS, false, _jobLink(d.job))
+                } else {
+                    const msg = d.message || 'Failed to add submodule'
+                    if (msg.toLowerCase().includes('url'))  add_url_err.value  = msg
+                    else if (msg.toLowerCase().includes('path')) add_path_err.value = msg
+                    else create_message(msg, TOAST.ERROR, true)
+                }
+                sub_adding.value = false
+            }
+
+            async function updatePackage(name) {
+                pkg_update_log.value = []
+                pkg_updating.value   = name
+                _pkg_log(pkg_update_log, `Updating ${name}…`, 'info')
+
+                const res = await apiFetch('/api/site-settings/packages/update', 'POST', { name })
+                const d   = await res.json()
+
+                if (d.message) {
+                    for (const line of d.message.split('\n').filter(l => l.trim())) {
+                        _pkg_log(pkg_update_log, line, res.ok ? 'ok' : 'error')
+                    }
+                }
+
+                if (res.ok) {
+                    await loadPackages()
+                    create_message(`Package "${name}" updated`, TOAST.SUCCESS)
+                } else {
+                    create_message(d.message || 'Update failed', TOAST.ERROR, true)
+                }
+                pkg_updating.value = null
+            }
+
+            return {
+                message_list, page_is_loading, info_loading,
+                sysinfo, smtp, show_smtp_pwd, test_email, smtp_log,
+                smtp_saving, smtp_testing, key_regen_loading,
+                saveSmtp, testSmtp, regenKey,
+                // server binding
+                srv, srv_host, srv_host_custom, srv_port, srv_saving, srv_countdown, srv_next_url,
+                saveServer,
+                // packages
+                pkg_all, pkg_filtered, pkg_loading, pkg_search,
+                pkg_install_name, pkg_install_loading, pkg_install_log,
+                pkg_update_log, pkg_updating,
+                installPackage, updatePackage,
+                // submodules
+                submodules, sub_loading, sub_updating_all, sub_updating_path, sub_removing_path, sub_adding,
+                show_add_modal, add_url, add_path, add_branch, add_url_err, add_path_err,
+                sub_browse_path, sub_tree_nodes, sub_tree_loading,
+                loadSubmodules, subStatusIcon,
+                updateSubmodule, updateAllSubmodules, removeSubmodule,
+                toggleBrowse, onTreeSelect, loadFileContent,
+                openAddModal, closeAddModal, submitAddSubmodule,
+                onAddUrlInput, onAddPathInput,
+            }
+        },
+    }).mount('#main-container')
+</script>
+{% endblock %}

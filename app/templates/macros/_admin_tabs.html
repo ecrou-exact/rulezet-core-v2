@@ -1,0 +1,71 @@
+{#
+  _admin_tabs.html — Inner horizontal tab navigation for all admin pages.
+  Auto-included by base.html when the current path is an admin path.
+  Tabs are permission-gated per user role.
+  Never edit this for layout — edit nav_registry.py or this file for new admin sections.
+#}
+{% if current_user.is_authenticated %}
+<div class="admin-tabs-bar">
+    {% if current_user.is_admin() or current_user.has_permission('users.view') %}
+    <a href="/admin/users"
+       class="admin-tab {% if request.path.startswith('/admin/users') %}is-active{% endif %}">
+        <i class="fas fa-users"></i><span>Users</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() or current_user.has_permission('admin.roles') %}
+    <a href="/admin/roles"
+       class="admin-tab {% if request.path.startswith('/admin/roles') %}is-active{% endif %}">
+        <i class="fas fa-shield-halved"></i><span>Roles</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() or current_user.has_permission('logs.view') %}
+    <a href="/admin/logs"
+       class="admin-tab {% if request.path.startswith('/admin/logs') %}is-active{% endif %}">
+        <i class="fas fa-scroll"></i><span>Logs</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() or current_user.has_permission('jobs.manage') %}
+    <a href="/jobs/"
+       class="admin-tab {% if request.path.startswith('/jobs') %}is-active{% endif %}">
+        <i class="fas fa-gears"></i><span>Jobs</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() or current_user.has_permission('tags.view') %}
+    <a href="/tags/"
+       class="admin-tab {% if request.path.startswith('/tags') %}is-active{% endif %}">
+        <i class="fas fa-tags"></i><span>Tags</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() or current_user.has_permission('connectors.view') %}
+    <a href="/connectors/"
+       class="admin-tab {% if request.path.startswith('/connectors') %}is-active{% endif %}">
+        <i class="fas fa-plug"></i><span>Connectors</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() %}
+    <a href="/admin/settings"
+       class="admin-tab {% if request.path.startswith('/admin/settings') and not request.path.startswith('/admin/settings/database') %}is-active{% endif %}">
+        <i class="fas fa-server"></i><span>Server</span>
+    </a>
+    <a href="/admin/settings/database"
+       class="admin-tab {% if request.path.startswith('/admin/settings/database') %}is-active{% endif %}">
+        <i class="fas fa-database"></i><span>Database</span>
+    </a>
+    <a href="/admin/template-studio/"
+       class="admin-tab {% if request.path.startswith('/admin/template-studio') %}is-active{% endif %}">
+        <i class="fas fa-wand-magic-sparkles"></i><span>Templates</span>
+    </a>
+    <a href="/api/" target="_blank" rel="noopener noreferrer"
+       class="admin-tab">
+        <i class="fas fa-code"></i><span>API</span>
+        <i class="fas fa-arrow-up-right-from-square" style="font-size:.5rem;opacity:.4;margin-left:2px;"></i>
+    </a>
+    {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,1230 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/docs/docs.css') }}">
+{% endblock %}
+
+{% block page_title %}Developer Docs{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!ready"></loading-bar>
+    <div v-if="ready">
+
+        <div class="docs-hero">
+            <p class="docs-hero-label">Flask Launchpad</p>
+            <h1 class="docs-hero-title">Developer Reference</h1>
+            <p class="docs-hero-sub">
+                Architecture decisions, coding conventions, and how-to guides for building
+                features on this codebase. Read this before writing your first line.
+            </p>
+        </div>
+
+        <div class="docs-wrapper">
+
+            {# ── Sidebar TOC ─────────────────────────────────────────── #}
+            <aside class="docs-sidebar">
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Architecture</p>
+                    <a href="#architecture" class="docs-toc-link">Request lifecycle</a>
+                    <a href="#layers" class="docs-toc-link">Layer responsibilities</a>
+                    <a href="#file-structure" class="docs-toc-link">File structure</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Access control</p>
+                    <a href="#roles" class="docs-toc-link">Roles</a>
+                    <a href="#permissions" class="docs-toc-link">Permissions</a>
+                    <a href="#decorators" class="docs-toc-link">Decorators</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Data</p>
+                    <a href="#models" class="docs-toc-link">Model conventions</a>
+                    <a href="#deletion" class="docs-toc-link">Deletion pattern</a>
+                    <a href="#core-pattern" class="docs-toc-link">Core functions</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Logging</p>
+                    <a href="#logging" class="docs-toc-link">log_action()</a>
+                    <a href="#log-categories" class="docs-toc-link">Categories & levels</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Frontend</p>
+                    <a href="#js-conventions" class="docs-toc-link">JS conventions</a>
+                    <a href="#toasts" class="docs-toc-link">Toasts</a>
+                    <a href="#api-fetch" class="docs-toc-link">apiFetch()</a>
+                    <a href="#frontend-perms" class="docs-toc-link">Permissions in Vue</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Templates</p>
+                    <a href="#template-skeleton" class="docs-toc-link">Page skeleton</a>
+                    <a href="#components" class="docs-toc-link">Components</a>
+                    <a href="#data-table" class="docs-toc-link">DataTable</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Styling</p>
+                    <a href="#design-tokens" class="docs-toc-link">Design tokens</a>
+                    <a href="#css-conventions" class="docs-toc-link">CSS conventions</a>
+                    <a href="#themes" class="docs-toc-link">Themes</a>
+                </div>
+
+                <div class="docs-toc-group">
+                    <p class="docs-toc-group-label">Conventions</p>
+                    <a href="#naming" class="docs-toc-link">Naming</a>
+                    <a href="#new-feature" class="docs-toc-link">New feature checklist</a>
+                </div>
+
+            </aside>
+
+            {# ── Content ─────────────────────────────────────────────── #}
+            <div class="docs-content">
+
+
+                {# ════════════════════ ARCHITECTURE ════════════════════ #}
+                <section class="docs-section" id="architecture">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-diagram-project"></i></span>
+                        Request lifecycle
+                    </h2>
+                    <p class="docs-lead">
+                        Every HTTP request flows through exactly four layers.
+                        Each layer has a single job — nothing leaks between them.
+                    </p>
+
+                    <div class="docs-steps">
+                        <div class="docs-step">
+                            <div class="docs-step-num"></div>
+                            <div class="docs-step-body">
+                                <p class="docs-step-title">Route (<code class="docs-inline-code">&lt;feature&gt;.py</code>)</p>
+                                <p class="docs-step-desc">Parses the incoming request, validates form data with <code class="docs-inline-code">form_to_dict()</code>, calls a core function, then flashes a message and redirects. It never touches the database directly.</p>
+                            </div>
+                        </div>
+                        <div class="docs-step">
+                            <div class="docs-step-num"></div>
+                            <div class="docs-step-body">
+                                <p class="docs-step-title">Core (<code class="docs-inline-code">&lt;feature&gt;_core.py</code>)</p>
+                                <p class="docs-step-desc">Contains all ORM queries and business logic. Always returns a tuple <code class="docs-inline-code">(object, "message")</code>. All <code class="docs-inline-code">log_action()</code> calls live here.</p>
+                            </div>
+                        </div>
+                        <div class="docs-step">
+                            <div class="docs-step-num"></div>
+                            <div class="docs-step-body">
+                                <p class="docs-step-title">API Resource (<code class="docs-inline-code">app/api/&lt;feature&gt;_api.py</code>)</p>
+                                <p class="docs-step-desc">Flask-RESTX resource classes. They validate JSON input via a verification module, call the same core functions as the HTML routes, and return JSON.</p>
+                            </div>
+                        </div>
+                        <div class="docs-step">
+                            <div class="docs-step-num"></div>
+                            <div class="docs-step-body">
+                                <p class="docs-step-title">Verification (<code class="docs-inline-code">verification_&lt;feature&gt;.py</code>)</p>
+                                <p class="docs-step-desc">Pure input validation — no ORM, no side effects. Returns errors or a clean dict that the API resource can safely pass to core.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="docs-callout is-rule">
+                        <i class="fas fa-ban docs-callout-icon"></i>
+                        <div>Routes never query the database. If you find yourself importing a model inside a route file, move that logic into the corresponding core file.</div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ LAYERS ════════════════════ #}
+                <section class="docs-section" id="layers">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-layer-group"></i></span>
+                        Layer responsibilities
+                    </h2>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead>
+                                <tr>
+                                    <th>Layer</th>
+                                    <th>Allowed to do</th>
+                                    <th>Never does</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Route</td>
+                                    <td>Parse request, call core, flash, redirect, render template</td>
+                                    <td>ORM queries, log_action, business logic</td>
+                                </tr>
+                                <tr>
+                                    <td>Core</td>
+                                    <td>ORM queries, business rules, log_action, return (obj, msg)</td>
+                                    <td>Flash messages, redirects, HTTP concerns</td>
+                                </tr>
+                                <tr>
+                                    <td>API Resource</td>
+                                    <td>Validate JSON, call core, return JSON response</td>
+                                    <td>Direct ORM access, log_action (delegate to core)</td>
+                                </tr>
+                                <tr>
+                                    <td>Verification</td>
+                                    <td>Validate types, ranges, formats, return errors</td>
+                                    <td>Any database access, any side effect</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ FILE STRUCTURE ════════════════════ #}
+                <section class="docs-section" id="file-structure">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-folder-tree"></i></span>
+                        File structure
+                    </h2>
+                    <p class="docs-lead">Every feature lives in a predictable set of files. New features must follow this layout exactly.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">layout</span>
+                        <pre v-pre>app/features/&lt;feature&gt;/
+    __init__.py
+    &lt;feature&gt;.py          ← HTML routes (blueprint)
+    &lt;feature&gt;_core.py     ← all DB logic + log_action
+    form.py               ← WTForms
+
+app/api/
+    &lt;feature&gt;_api.py      ← Flask-RESTX resources
+    verification_&lt;feature&gt;.py
+
+app/static/css/&lt;feature&gt;/
+    &lt;feature&gt;.css
+
+app/templates/&lt;feature&gt;/
+    list.html
+    detail.html
+    create.html
+    edit.html
+
+tests/&lt;feature&gt;/
+    __init__.py
+    test_&lt;feature&gt;.py</pre>
+                    </div>
+
+                    <div class="docs-callout is-tip">
+                        <i class="fas fa-lightbulb docs-callout-icon"></i>
+                        <div>Adding a route to an existing feature? Extend the existing files — never create a parallel folder for the same domain.</div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ ROLES ════════════════════ #}
+                <section class="docs-section" id="roles">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-user-shield"></i></span>
+                        Roles
+                    </h2>
+                    <p class="docs-lead">
+                        Every user has exactly one <code class="docs-inline-code">Role</code>. Roles carry two special flags
+                        and a set of granular permission keys.
+                    </p>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead>
+                                <tr><th>Flag</th><th>Meaning</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>admin</td>
+                                    <td>Full unrestricted access. Bypasses all permission checks automatically. Use <code class="docs-inline-code">user.is_admin()</code> to test.</td>
+                                </tr>
+                                <tr>
+                                    <td>read_only</td>
+                                    <td>Restricts to safe HTTP methods (GET/HEAD). Use <code class="docs-inline-code">user.read_only()</code> to test. Enforce in core functions when needed.</td>
+                                </tr>
+                                <tr>
+                                    <td>protected</td>
+                                    <td>Role cannot be deleted through the UI. Set on seeded system roles.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Useful User methods</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">python</span>
+                            <pre v-pre>user.is_admin()              # True if role.admin
+user.read_only()             # True if role.read_only
+user.has_permission('key')   # True if admin OR role holds that key
+user.display_name()          # username or "First Last"
+user.initials()              # "FL" — for avatars
+user.full_name()             # "First Last"
+user.to_json()               # safe serialisation dict</pre>
+                        </div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ PERMISSIONS ════════════════════ #}
+                <section class="docs-section" id="permissions">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-key"></i></span>
+                        Permissions
+                    </h2>
+                    <p class="docs-lead">
+                        Permissions are plain string keys stored in <code class="docs-inline-code">app/core/utils/permissions.py</code>.
+                        Nav items are registered in <code class="docs-inline-code">app/core/utils/nav_registry.py</code> — those are
+                        the only two files to touch when adding a feature's access rules.
+                    </p>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Defining a permission key</p>
+                        <p class="docs-p">Keys follow dot notation: <code class="docs-inline-code">feature.action</code>. Add them in <code class="docs-inline-code">permissions.py</code> as constants so they are autocompleted across the codebase.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">permissions.py</span>
+                            <pre v-pre># add your feature block
+INVOICE_VIEW   = 'invoice.view'
+INVOICE_CREATE = 'invoice.create'
+INVOICE_EDIT   = 'invoice.edit'
+INVOICE_DELETE = 'invoice.delete'</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Registering in nav_registry.py</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">nav_registry.py</span>
+                            <pre v-pre>NAV_ITEMS = [
+    ...
+    {
+        'label': 'Invoices',
+        'icon':  'fa-file-invoice',
+        'url':   'invoice.index',
+        'permission': 'invoice.view',   # None = all auth, 'admin_only' = admins
+    },
+]</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-callout is-rule">
+                        <i class="fas fa-ban docs-callout-icon"></i>
+                        <div>Never touch <code class="docs-inline-code">_nav.html</code> or <code class="docs-inline-code">_search_sections.html</code>. Both are generated automatically from <code class="docs-inline-code">nav_registry.py</code>.</div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ DECORATORS ════════════════════ #}
+                <section class="docs-section" id="decorators">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-lock"></i></span>
+                        Decorators
+                    </h2>
+                    <p class="docs-lead">
+                        One decorator handles all access control for HTML routes. A matching decorator covers API resources.
+                        Never leave a route without one.
+                    </p>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">HTML routes — <code class="docs-inline-code">require_permission(key)</code></p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">python</span>
+                            <pre v-pre>from app.core.utils.decorators import require_permission
+
+@blueprint.route('/invoices')
+@require_permission()                   # any authenticated user
+def index(): ...
+
+@blueprint.route('/invoices/new')
+@require_permission('invoice.create')   # requires that key (admins bypass)
+def create(): ...
+
+@blueprint.route('/admin/invoices')
+@require_permission('admin_only')       # admin flag required
+def admin_list(): ...
+</pre>
+                        </div>
+                        <p class="docs-p">When the user is not authenticated, <code class="docs-inline-code">require_permission</code> redirects to login automatically. On a permission mismatch it returns 403.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">API resources — <code class="docs-inline-code">api_require_permission(key)</code></p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">python</span>
+                            <pre v-pre>from app.core.utils.decorators import api_require_permission
+
+class InvoiceList(Resource):
+    method_decorators = [api_require_permission('invoice.view')]
+
+    def get(self): ...
+
+class InvoiceAdmin(Resource):
+    method_decorators = [api_require_permission('admin_only')]
+
+    def delete(self, uid): ...</pre>
+                        </div>
+                        <p class="docs-p">The API decorator accepts both <code class="docs-inline-code">X-API-KEY</code> header (external clients) and session authentication (internal frontend calls). You never need to handle both manually.</p>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ MODELS ════════════════════ #}
+                <section class="docs-section" id="models">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-database"></i></span>
+                        Model conventions
+                    </h2>
+                    <p class="docs-lead">Every new model must carry the full set of standard fields. This enables soft-delete, audit trails, and public/private visibility out of the box.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">python — standard fields</span>
+                        <pre v-pre>import uuid as _uuid
+from datetime import datetime
+from app import db
+
+class Invoice(db.Model):
+    # ── Identifiers ─────────────────────────────────
+    id          = db.Column(db.Integer, primary_key=True)
+    uuid        = db.Column(db.String(36), unique=True, nullable=False,
+                            default=lambda: str(_uuid.uuid4()))
+
+    # ── Content ─────────────────────────────────────
+    title       = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    is_public   = db.Column(db.Boolean, default=False)
+
+    # ── Traceability ─────────────────────────────────
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow,
+                            onupdate=datetime.utcnow)
+    created_by  = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    # ── Soft delete ──────────────────────────────────
+    is_active   = db.Column(db.Boolean, default=True)
+    deleted_at  = db.Column(db.DateTime, nullable=True)
+    deleted_by  = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    # ── Flexible metadata ────────────────────────────
+    meta        = db.Column(db.JSON, nullable=True)
+
+    # ── Your feature fields below ────────────────────
+    amount      = db.Column(db.Float, nullable=False)</pre>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Querying active vs trashed records</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">python</span>
+                            <pre v-pre># Active records (default view)
+Invoice.query.filter_by(is_active=True).all()
+
+# Trash (admin restore / hard-delete view)
+Invoice.query.filter_by(is_active=False).all()
+
+# Accept both ID and UUID in routes
+from app.core.utils.utils import isUUID
+
+def get_invoice_or_404(uid):
+    if isUUID(uid):
+        return Invoice.query.filter_by(uuid=uid, is_active=True).first_or_404()
+    return Invoice.query.filter_by(id=uid, is_active=True).first_or_404()</pre>
+                        </div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ DELETION ════════════════════ #}
+                <section class="docs-section" id="deletion">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-trash-can"></i></span>
+                        Deletion pattern
+                    </h2>
+                    <p class="docs-lead">User actions never physically delete a row. Hard deletion is an admin-only operation, accessible exclusively from the trash view at <code class="docs-inline-code">/admin/&lt;feature&gt;/trash</code>.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">python — core</span>
+                        <pre v-pre>from datetime import datetime
+from flask_login import current_user
+
+def delete_invoice(invoice):
+    """Soft delete — called from a user action."""
+    invoice.is_active  = False
+    invoice.deleted_at = datetime.utcnow()
+    invoice.deleted_by = current_user.id
+    db.session.commit()
+    log_action("Invoice deleted", "delete", ...)
+    return invoice, "Invoice moved to trash."
+
+def restore_invoice(invoice):
+    """Restore from trash — admin only."""
+    invoice.is_active  = True
+    invoice.deleted_at = None
+    invoice.deleted_by = None
+    db.session.commit()
+    log_action("Invoice restored", "restore", ...)
+    return invoice, "Invoice restored."
+
+def hard_delete_invoice(invoice):
+    """Permanently destroy — admin, from trash only."""
+    db.session.delete(invoice)
+    db.session.commit()
+    log_action("Invoice permanently deleted", "hard_delete", ...)
+    return None, "Invoice permanently deleted."</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ CORE PATTERN ════════════════════ #}
+                <section class="docs-section" id="core-pattern">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-gear"></i></span>
+                        Core functions
+                    </h2>
+                    <p class="docs-lead">Every core function returns a two-tuple <code class="docs-inline-code">(result, message)</code>. The route or API resource decides what to do with both values — core has no opinion about HTTP.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">python — core</span>
+                        <pre v-pre>def create_invoice(data: dict):
+    """data comes from form_to_dict() or verified API payload."""
+    invoice = Invoice(
+        title=data['title'],
+        amount=data['amount'],
+        created_by=current_user.id,
+    )
+    db.session.add(invoice)
+    db.session.commit()
+    log_action("Invoice created", "create", category="invoice",
+               level="success", object_type="invoice",
+               object_id=invoice.id, is_public=True)
+    return invoice, "Invoice created successfully."</pre>
+                    </div>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">python — route consuming core</span>
+                        <pre v-pre>@invoice_blueprint.route('/new', methods=['POST'])
+@require_permission('invoice.create')
+def create():
+    form = InvoiceForm()
+    if form.validate_on_submit():
+        data = form_to_dict(form)
+        invoice, msg = create_invoice(data)
+        flash(msg, 'success')
+        return redirect(url_for('invoice.detail', uid=invoice.uuid))
+    return render_template('invoice/create.html', form=form)</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ LOGGING ════════════════════ #}
+                <section class="docs-section" id="logging">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-scroll"></i></span>
+                        log_action()
+                    </h2>
+                    <p class="docs-lead">
+                        The central logging helper. Call it exclusively from <code class="docs-inline-code">*_core.py</code> files.
+                        It never raises — a logging failure cannot break a request.
+                        The actor, IP address, and user-agent are detected automatically from the request context.
+                    </p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">python — signature</span>
+                        <pre v-pre>from app.core.utils.logger import log_action
+
+log_action(
+    title="Invoice created",      # required — human-readable summary
+    action="create",              # required — machine key
+    category="invoice",           # user|system|security|admin|api
+    level="success",              # info|success|warning|error
+    description="Optional long text about what happened",
+    object_type="invoice",        # the model being acted on
+    object_id=invoice.id,         # coerced to str automatically
+    is_public=True,               # False = admin-only in log viewer
+    meta={"role_id": user.role_id},  # IDs only — never plain names
+    actor_id=None,                # override auto-detected current_user
+)</pre>
+                    </div>
+
+                    <div class="docs-callout is-warn">
+                        <i class="fas fa-triangle-exclamation docs-callout-icon"></i>
+                        <div>Never put plain names or sensitive values (passwords, tokens, emails) in <code class="docs-inline-code">meta</code>. Store IDs only. Names change; IDs don't, and they can be resolved at display time.</div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ LOG CATEGORIES ════════════════════ #}
+                <section class="docs-section" id="log-categories">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-tags"></i></span>
+                        Categories &amp; levels
+                    </h2>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Category</p>
+                        <div class="docs-table-wrap">
+                            <table class="docs-table">
+                                <thead><tr><th>Value</th><th>When to use</th></tr></thead>
+                                <tbody>
+                                    <tr><td>user</td><td>Auth events: login, logout, password change</td></tr>
+                                    <tr><td>system</td><td>Background jobs, scheduled tasks, startup events</td></tr>
+                                    <tr><td>security</td><td>Failed auth, permission denials, suspicious activity</td></tr>
+                                    <tr><td>admin</td><td>Admin actions on other users or global config</td></tr>
+                                    <tr><td>api</td><td>Any log_action inside an <code class="docs-inline-code">*_api.py</code> file — mandatory</td></tr>
+                                    <tr><td>&lt;feature&gt;</td><td>Feature-specific CRUD (e.g. "invoice", "project")</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Standard action keys</p>
+                        <div class="docs-table-wrap">
+                            <table class="docs-table">
+                                <thead><tr><th>action</th><th>is_public</th><th>Notes</th></tr></thead>
+                                <tbody>
+                                    <tr><td>login / logout</td><td>False</td><td>category = user</td></tr>
+                                    <tr><td>create / edit</td><td>True</td><td>category = feature name</td></tr>
+                                    <tr><td>delete / restore</td><td>False</td><td>category = feature name</td></tr>
+                                    <tr><td>hard_delete</td><td>False</td><td>admin only</td></tr>
+                                    <tr><td>bulk_delete / bulk_edit</td><td>False</td><td>admin only</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">API category helper</p>
+                        <p class="docs-p">Inside <code class="docs-inline-code">*_api.py</code> files use <code class="docs-inline-code">api_category()</code> when you want to distinguish external API calls (with <code class="docs-inline-code">X-API-KEY</code>) from internal frontend calls.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">python</span>
+                            <pre v-pre>from app.core.utils.logger import log_action, api_category
+
+log_action("Invoice created", "create",
+           category=api_category('invoice'),  # 'api' if X-API-KEY, else 'invoice'
+           level="success", ...)</pre>
+                        </div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ JS CONVENTIONS ════════════════════ #}
+                <section class="docs-section" id="js-conventions">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fab fa-js"></i></span>
+                        JS conventions
+                    </h2>
+                    <p class="docs-lead">All frontend code uses Vue 3 Composition API with ES modules. Templates use <code class="docs-inline-code">&#91;&#91;&nbsp;&#93;&#93;</code> delimiters so Jinja2 and Vue don't collide.</p>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">App bootstrap</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">javascript</span>
+                            <pre v-pre>const { createApp, ref, computed, onMounted } = Vue
+import { TOAST, apiFetch }          from '/static/js/constants.js'
+import { create_message, message_list } from '/static/js/toaster.js'
+import LoadingBar  from '/static/js/components/loading-bar.js'
+import Pagination  from '/static/js/components/pagination/pagination.js'
+
+createApp({
+    delimiters: ['[[', ']]'],
+    components: { LoadingBar, Pagination },
+    setup() {
+        const page_is_loading = ref(false)
+
+        onMounted(async () => {
+            await Promise.all([fetchItems()])
+            page_is_loading.value = true
+        })
+
+        return { page_is_loading, message_list }
+    }
+}).mount('#main-container')</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Jinja values in scripts</p>
+                        <p class="docs-p">Always quote Jinja expressions inside <code class="docs-inline-code">&lt;script&gt;</code> tags to produce valid JS strings.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">javascript</span>
+                            <pre v-pre>{% raw %}// Correct
+const userId   = '{{ current_user.id }}'
+const userName = '{{ current_user.display_name() | e }}'
+
+// Wrong — breaks if value contains quotes or special chars
+const userId = {{ current_user.id }}{% endraw %}</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-callout is-rule">
+                        <i class="fas fa-ban docs-callout-icon"></i>
+                        <div>Never use <code class="docs-inline-code">console.log</code>. Never use <code class="docs-inline-code">display_toast()</code> directly in templates — always <code class="docs-inline-code">create_message()</code>.</div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ TOASTS ════════════════════ #}
+                <section class="docs-section" id="toasts">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-bell"></i></span>
+                        Toasts
+                    </h2>
+                    <p class="docs-lead"><code class="docs-inline-code">create_message()</code> is the single way to show feedback to the user from JavaScript. Use <code class="docs-inline-code">TOAST.*</code> constants — never raw strings.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">javascript</span>
+                        <pre v-pre>import { TOAST, apiFetch }            from '/static/js/constants.js'
+import { create_message }            from '/static/js/toaster.js'
+
+async function saveInvoice() {
+    const res = await apiFetch('/api/invoice/', 'POST', { title: 'Q1' })
+    if (res.ok) {
+        create_message('Invoice saved.', TOAST.SUCCESS)
+    } else {
+        const err = await res.json()
+        create_message(err.message || 'Something went wrong.', TOAST.ERROR)
+    }
+}
+
+// Sticky toast — stays until the user dismisses it
+create_message('Import running in the background…', TOAST.INFO, true)</pre>
+                    </div>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th>Constant</th><th>Value</th><th>Visual</th></tr></thead>
+                            <tbody>
+                                <tr><td>TOAST.SUCCESS</td><td>'success'</td><td>Green checkmark</td></tr>
+                                <tr><td>TOAST.WARNING</td><td>'warning'</td><td>Amber triangle</td></tr>
+                                <tr><td>TOAST.ERROR</td><td>'danger'</td><td>Red cross</td></tr>
+                                <tr><td>TOAST.INFO</td><td>'info'</td><td>Blue circle-i</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ API FETCH ════════════════════ #}
+                <section class="docs-section" id="api-fetch">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-arrows-rotate"></i></span>
+                        apiFetch()
+                    </h2>
+                    <p class="docs-lead">
+                        <code class="docs-inline-code">apiFetch(url, method, body)</code> is the only way to make API calls from the frontend.
+                        It automatically injects the CSRF token, sets JSON content-type, and returns a native <code class="docs-inline-code">Response</code>.
+                    </p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">javascript</span>
+                        <pre v-pre>import { apiFetch } from '/static/js/constants.js'
+
+// GET — no body
+const res = await apiFetch('/api/invoice/123')
+
+// POST with body
+const res = await apiFetch('/api/invoice/', 'POST', {
+    title: 'Q2 Invoice',
+    amount: 4200,
+})
+
+// DELETE
+const res = await apiFetch(`/api/invoice/${id}`, 'DELETE')
+
+// Always check res.ok before consuming the body
+if (!res.ok) {
+    const err = await res.json()
+    create_message(err.message, TOAST.ERROR)
+    return
+}
+const data = await res.json()</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ FRONTEND PERMS ════════════════════ #}
+                <section class="docs-section" id="frontend-perms">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-shield-halved"></i></span>
+                        Permissions in Vue
+                    </h2>
+                    <p class="docs-lead">
+                        <code class="docs-inline-code">USER_PERMS</code> and <code class="docs-inline-code">hasPerm()</code> are injected globally by <code class="docs-inline-code">_user_perms.html</code>.
+                        They are available in every <code class="docs-inline-code">&lt;script type="module"&gt;</code> without any import.
+                    </p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">javascript — in setup()</span>
+                        <pre v-pre>// Read permission flags once at mount
+const can_view   = hasPerm('invoice.view')
+const can_create = hasPerm('invoice.create')
+const can_edit   = hasPerm('invoice.edit')
+const can_delete = hasPerm('invoice.delete')
+
+// hasPerm() returns true for admin users regardless of explicit grants
+return { can_view, can_create, can_edit, can_delete }</pre>
+                    </div>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">html — pass to data-table</span>
+                        <pre v-pre>&lt;data-table
+    :can-create="can_create"
+    :can-edit="can_edit"
+    :can-delete="can_delete"
+    ...
+&gt;&lt;/data-table&gt;</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ TEMPLATE SKELETON ════════════════════ #}
+                <section class="docs-section" id="template-skeleton">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-file-code"></i></span>
+                        Page skeleton
+                    </h2>
+                    <p class="docs-lead">Every page extends <code class="docs-inline-code">base.html</code> and follows this exact structure. The loading bar hides the page until all API calls resolve.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">jinja2</span>
+                        <pre v-pre>{% raw %}{% extends 'base.html' %}
+
+{% block head_extra %}
+&lt;link rel="stylesheet" href="{{ url_for('static', filename='css/invoice/invoice.css') }}"&gt;
+{% endblock %}
+
+{% block page_title %}Invoices{% endblock %}
+
+{% block content %}
+&lt;div class="page-wrapper" v-cloak&gt;
+    &lt;loading-bar :active="!page_is_loading"&gt;&lt;/loading-bar&gt;
+    &lt;div v-if="page_is_loading"&gt;
+
+        &lt;div class="page-header"&gt;
+            &lt;div&gt;
+                &lt;nav aria-label="breadcrumb"&gt;
+                    &lt;ol class="breadcrumb mb-1"&gt;
+                        &lt;li class="breadcrumb-item"&gt;
+                            &lt;a href="{{ url_for('home.home') }}"&gt;Home&lt;/a&gt;
+                        &lt;/li&gt;
+                        &lt;li class="breadcrumb-item active"&gt;Invoices&lt;/li&gt;
+                    &lt;/ol&gt;
+                &lt;/nav&gt;
+                &lt;h1 class="page-title"&gt;Invoices&lt;/h1&gt;
+            &lt;/div&gt;
+            &lt;div class="page-actions"&gt;
+                &lt;button v-if="can_create" class="btn btn-primary btn-sm"
+                        @click="openCreate"&gt;
+                    &lt;i class="fas fa-plus me-1"&gt;&lt;/i&gt;New invoice
+                &lt;/button&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="page-body"&gt;
+            &lt;!-- content --&gt;
+        &lt;/div&gt;
+
+    &lt;/div&gt;
+&lt;/div&gt;
+{% endblock %}
+
+{% block script %}
+&lt;script type="module"&gt;
+    const { createApp, ref, onMounted } = Vue
+    import { TOAST, apiFetch }              from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar  from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            const can_create = hasPerm('invoice.create')
+
+            onMounted(async () => {
+                await Promise.all([fetchInvoices()])
+                page_is_loading.value = true
+            })
+
+            return { page_is_loading, message_list, can_create }
+        }
+    }).mount('#main-container')
+&lt;/script&gt;
+{% endblock %}{% endraw %}</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ COMPONENTS ════════════════════ #}
+                <section class="docs-section" id="components">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-puzzle-piece"></i></span>
+                        Components
+                    </h2>
+                    <p class="docs-lead">All reusable pieces live in <code class="docs-inline-code">static/js/components/</code>. Always import from there before writing anything from scratch.</p>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th>Component</th><th>File</th><th>Purpose</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>&lt;loading-bar&gt;</td>
+                                    <td>loading-bar.js</td>
+                                    <td>Thin progress bar that shows while <code class="docs-inline-code">page_is_loading</code> is false. Pass <code class="docs-inline-code">:active="!page_is_loading"</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;data-table&gt;</td>
+                                    <td>table/data-table.js</td>
+                                    <td>Full-featured table with sort, filter, pagination, bulk selection, row expand. See dedicated section.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;pagination&gt;</td>
+                                    <td>pagination/pagination.js</td>
+                                    <td>Standalone pagination bar. Emits <code class="docs-inline-code">page-change</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;role-badge&gt;</td>
+                                    <td>role-badge.js</td>
+                                    <td>Coloured badge showing a role's icon and name. Pass <code class="docs-inline-code">:role="roleObject"</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;user-avatar&gt;</td>
+                                    <td>user-avatar.js</td>
+                                    <td>Avatar circle — shows uploaded image or initials fallback.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;modal-confirm&gt;</td>
+                                    <td>modals/modal-confirm.js</td>
+                                    <td>Generic confirmation dialog. Emits <code class="docs-inline-code">confirm</code> and <code class="docs-inline-code">cancel</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td>&lt;password-strength&gt;</td>
+                                    <td>password-strength.js</td>
+                                    <td>Live strength indicator for password fields.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ DATA TABLE ════════════════════ #}
+                <section class="docs-section" id="data-table">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-table"></i></span>
+                        DataTable
+                    </h2>
+                    <p class="docs-lead">The <code class="docs-inline-code">&lt;data-table&gt;</code> component is the only way to render tabular data. Never build a raw HTML table for listing records.</p>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">javascript — setup</span>
+                        <pre v-pre>import DataTable from '/static/js/components/table/data-table.js'
+
+const columns = [
+    { key: 'title',  label: 'Title',  sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true },
+    { key: 'status', label: 'Status' },
+]
+const items        = ref([])
+const totalItems   = ref(0)
+const currentPage  = ref(1)
+const totalPages   = ref(1)
+const allItemsIds  = ref([])  // for "select all pages"
+
+async function fetchItems() {
+    const res  = await apiFetch(`/api/invoice/?page=${currentPage.value}`)
+    const data = await res.json()
+    items.value      = data.items
+    totalItems.value = data.total
+    totalPages.value = data.pages
+}</pre>
+                    </div>
+
+                    <div class="docs-code-block">
+                        <span class="docs-code-label">html</span>
+                        <pre v-pre>&lt;data-table
+    :columns="columns"
+    :items="items"
+    :total-items="totalItems"
+    :current-page="currentPage"
+    :total-pages="totalPages"
+    :can-create="can_create"
+    :can-edit="can_edit"
+    :can-delete="can_delete"
+    :selectable="true"
+    :all-items-ids="allItemsIds"
+    :bulk-actions="[{ label: 'Delete selected', value: 'bulk_delete' }]"
+    @sort-change="onSort"
+    @filter-change="onFilter"
+    @page-change="onPageChange"
+    @create="openCreate"
+    @edit="openEdit"
+    @delete="confirmDelete"
+    @bulk-action="onBulkAction"
+&gt;
+    &lt;!-- Optional: expanded row detail slot --&gt;
+    &lt;template #row-detail="{ item }"&gt;
+        &lt;p&gt;[[ item.description ]]&lt;/p&gt;
+    &lt;/template&gt;
+&lt;/data-table&gt;</pre>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ DESIGN TOKENS ════════════════════ #}
+                <section class="docs-section" id="design-tokens">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-palette"></i></span>
+                        Design tokens
+                    </h2>
+                    <p class="docs-lead">All visual values are CSS custom properties defined in <code class="docs-inline-code">core.css</code>. Never hardcode a color or shadow value — always reference a token.</p>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th>Token</th><th>Use for</th></tr></thead>
+                            <tbody>
+                                <tr><td>--bg-body</td><td>Page background</td></tr>
+                                <tr><td>--bg-surface</td><td>Card, panel backgrounds</td></tr>
+                                <tr><td>--bg-elevated</td><td>Hover states, code blocks, slightly raised surfaces</td></tr>
+                                <tr><td>--bg-sidebar</td><td>Navigation sidebar background</td></tr>
+                                <tr><td>--text-main</td><td>Primary body text</td></tr>
+                                <tr><td>--text-secondary</td><td>Secondary / supporting text</td></tr>
+                                <tr><td>--text-muted</td><td>Disabled, placeholder, label text</td></tr>
+                                <tr><td>--brand</td><td>Accent color — buttons, links, highlights</td></tr>
+                                <tr><td>--brand-dim</td><td>Soft brand tint — active backgrounds</td></tr>
+                                <tr><td>--border</td><td>Card borders, dividers</td></tr>
+                                <tr><td>--border-subtle</td><td>Very subtle separators inside surfaces</td></tr>
+                                <tr><td>--shadow-sm / md / lg</td><td>Elevation — cards, dropdowns, modals</td></tr>
+                                <tr><td>--radius-sm / md / lg / xl</td><td>Border radius — buttons, cards, modals</td></tr>
+                                <tr><td>--font-sans</td><td>Body text (DM Sans)</td></tr>
+                                <tr><td>--font-display</td><td>Headings (Bricolage Grotesque)</td></tr>
+                                <tr><td>--font-mono</td><td>Code, IDs, technical values (DM Mono)</td></tr>
+                                <tr><td>--transition</td><td>Fast interaction transition (0.16s)</td></tr>
+                                <tr><td>--transition-slow</td><td>Slower layout transition (0.28s)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ CSS CONVENTIONS ════════════════════ #}
+                <section class="docs-section" id="css-conventions">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-brush"></i></span>
+                        CSS conventions
+                    </h2>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">One file per feature</p>
+                        <p class="docs-p">Place feature styles in <code class="docs-inline-code">static/css/&lt;feature&gt;/&lt;feature&gt;.css</code> and load it via <code class="docs-inline-code">&#123;% block head_extra %&#125;</code>. Never add feature-specific rules to <code class="docs-inline-code">core.css</code>.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Class naming</p>
+                        <p class="docs-p">Always prefix classes with the feature name to avoid collisions. Use <code class="docs-inline-code">kebab-case</code>.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">css</span>
+                            <pre v-pre>/* Good */
+.invoice-card { ... }
+.invoice-amount-badge { ... }
+
+/* Wrong — no prefix, will collide */
+.card { ... }
+.badge { ... }</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Section delimiters</p>
+                        <p class="docs-p">Divide each CSS file into named sections for readability.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">css</span>
+                            <pre v-pre>/*---INVOICE_CARD---*/
+
+.invoice-card { ... }
+
+/*---INVOICE_TABLE---*/
+
+.invoice-table-row { ... }</pre>
+                        </div>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">Dark mode</p>
+                        <p class="docs-p">Override token-based styles with a <code class="docs-inline-code">[data-bs-theme="dark"]</code> block. Anything referencing only CSS variables is automatically dark-mode compatible without extra work.</p>
+                        <div class="docs-code-block">
+                            <span class="docs-code-label">css</span>
+                            <pre v-pre>[data-bs-theme="dark"] .invoice-card {
+    box-shadow: var(--shadow-md);  /* shadow-md is already dark-aware */
+}
+
+/* Avoid hardcoded overrides — use tokens */
+[data-bs-theme="dark"] .invoice-card {
+    background: #1a1a1a;  /* Wrong — hardcoded */
+    background: var(--bg-surface);  /* Correct */
+}</pre>
+                        </div>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ THEMES ════════════════════ #}
+                <section class="docs-section" id="themes">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-swatchbook"></i></span>
+                        Themes
+                    </h2>
+                    <p class="docs-lead">The design system ships seven themes. Each redefines the CSS token set. Code that uses only tokens is automatically theme-compatible.</p>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th>Key</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td>system</td><td>Follows the OS dark/light preference</td></tr>
+                                <tr><td>light</td><td>Warm Studio — warm off-white, terracotta accent</td></tr>
+                                <tr><td>dark</td><td>Deep aubergine dark mode</td></tr>
+                                <tr><td>ocean</td><td>Airy coastal, dark navy sidebar, cerulean accent</td></tr>
+                                <tr><td>forest</td><td>Dark woodland — muted pine, moss accent</td></tr>
+                                <tr><td>midnight</td><td>Deep blue-black, electric blue accent</td></tr>
+                                <tr><td>slate</td><td>Cool grey, purple accent</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="docs-p">The active theme is stored in <code class="docs-inline-code">UserConfig.theme</code> and applied by <code class="docs-inline-code">theme.js</code> synchronously before CSS loads to prevent flash.</p>
+                </section>
+
+
+                {# ════════════════════ NAMING ════════════════════ #}
+                <section class="docs-section" id="naming">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-signature"></i></span>
+                        Naming conventions
+                    </h2>
+
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th>Element</th><th>Convention</th><th>Example</th></tr></thead>
+                            <tbody>
+                                <tr><td>URL route</td><td>kebab-case</td><td><code class="docs-inline-code">/invoices/line-items</code></td></tr>
+                                <tr><td>Blueprint name</td><td>snake_case + _blueprint</td><td><code class="docs-inline-code">invoice_blueprint</code></td></tr>
+                                <tr><td>API namespace</td><td>snake_case + _ns</td><td><code class="docs-inline-code">invoice_ns</code></td></tr>
+                                <tr><td>Python function</td><td>snake_case</td><td><code class="docs-inline-code">create_invoice()</code></td></tr>
+                                <tr><td>Python class / model</td><td>PascalCase</td><td><code class="docs-inline-code">Invoice</code>, <code class="docs-inline-code">LineItem</code></td></tr>
+                                <tr><td>Vue component name</td><td>PascalCase</td><td><code class="docs-inline-code">DataTable</code>, <code class="docs-inline-code">LoadingBar</code></td></tr>
+                                <tr><td>Vue component tag</td><td>kebab-case</td><td><code class="docs-inline-code">&lt;data-table&gt;</code></td></tr>
+                                <tr><td>JS file</td><td>kebab-case</td><td><code class="docs-inline-code">data-table.js</code></td></tr>
+                                <tr><td>JS variable</td><td>camelCase</td><td><code class="docs-inline-code">totalItems</code>, <code class="docs-inline-code">currentPage</code></td></tr>
+                                <tr><td>JS constant</td><td>UPPER_SNAKE_CASE</td><td><code class="docs-inline-code">TOAST</code>, <code class="docs-inline-code">CSRF_TOKEN</code></td></tr>
+                                <tr><td>CSS class</td><td>kebab-case, feature-prefixed</td><td><code class="docs-inline-code">.invoice-card</code></td></tr>
+                                <tr><td>CSS file</td><td>snake_case or kebab-case</td><td><code class="docs-inline-code">invoice.css</code></td></tr>
+                                <tr><td>Jinja template</td><td>snake_case</td><td><code class="docs-inline-code">invoice/list.html</code></td></tr>
+                                <tr><td>Permission key</td><td>feature.action dot notation</td><td><code class="docs-inline-code">invoice.create</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+
+                {# ════════════════════ NEW FEATURE ════════════════════ #}
+                <section class="docs-section" id="new-feature">
+                    <h2 class="docs-section-title">
+                        <span class="docs-section-icon"><i class="fas fa-rocket"></i></span>
+                        New feature checklist
+                    </h2>
+                    <p class="docs-lead">Every feature must pass all nine blocks before it is considered done. No exceptions.</p>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">1 — Structure</p>
+                        <p class="docs-p">Create <code class="docs-inline-code">app/features/&lt;f&gt;/</code> with <code class="docs-inline-code">__init__.py</code>, <code class="docs-inline-code">&lt;f&gt;.py</code>, <code class="docs-inline-code">&lt;f&gt;_core.py</code>, and <code class="docs-inline-code">form.py</code>. Create <code class="docs-inline-code">app/api/&lt;f&gt;_api.py</code> and <code class="docs-inline-code">verification_&lt;f&gt;.py</code>. Add a CSS file and a tests folder.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">2 — Model</p>
+                        <p class="docs-p">All standard fields must be present. Run <code class="docs-inline-code">./launch.sh --migrate "add invoice"</code> then <code class="docs-inline-code">./launch.sh --upgrade</code>.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">3 — Access</p>
+                        <p class="docs-p">Add permission keys to <code class="docs-inline-code">permissions.py</code>. Register nav items in <code class="docs-inline-code">nav_registry.py</code>. Decorate every route and API resource.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">4 — CRUD</p>
+                        <p class="docs-p">HTML routes for list, detail, create, edit, delete. API endpoints for GET, POST, PUT, DELETE, restore, hard-delete, and bulk operations. Trash route at <code class="docs-inline-code">/admin/&lt;f&gt;/trash</code>.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">5 — Logs</p>
+                        <p class="docs-p">Call <code class="docs-inline-code">log_action()</code> on every mutating operation: create, edit, delete, restore, hard_delete, every bulk action, and any sensitive read.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">6 — Background jobs</p>
+                        <p class="docs-p">Any operation that touches more than 50 records or takes longer than 2 seconds must run as a background job. The API endpoint returns <code class="docs-inline-code">202 + job_id</code>. The frontend polls <code class="docs-inline-code">/api/jobs/&lt;id&gt;</code>.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">7 — Tests</p>
+                        <p class="docs-p">Cover HTML routes (200 / 302 / 403 / 404 per role), API endpoints (201 / 400 / 403 / 404), the full trash flow (delete → restore → hard delete), and security-sensitive fields. Run <code class="docs-inline-code">./launch.sh --test</code> before declaring done.</p>
+                    </div>
+
+                    <div class="docs-subsection">
+                        <p class="docs-subsection-title">8 — Docs &amp; 9 — Security</p>
+                        <p class="docs-p">Update <code class="docs-inline-code">CLAUDE.md</code> and <code class="docs-inline-code">README.md</code>. Run <code class="docs-inline-code">bandit -r app/</code> — no HIGH or MEDIUM findings. Ensure no sensitive data leaks through API responses or log entries.</p>
+                    </div>
+
+                    <div class="docs-callout is-tip">
+                        <i class="fas fa-lightbulb docs-callout-icon"></i>
+                        <div>The fastest way to start a new feature is to copy an existing one (e.g. <code class="docs-inline-code">config</code>) and rename every identifier. The structure is identical across all features by design.</div>
+                    </div>
+                </section>
+
+            </div>{# /docs-content #}
+        </div>{# /docs-wrapper #}
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted, onUnmounted } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const ready = ref(false)
+
+            const updateActive = () => {
+                const links = document.querySelectorAll('.docs-toc-link')
+                const sections = document.querySelectorAll('.docs-section')
+                let current = ''
+                sections.forEach(s => {
+                    if (s.getBoundingClientRect().top <= 80) current = s.id
+                })
+                links.forEach(l => {
+                    l.classList.toggle('is-active', l.getAttribute('href') === '#' + current)
+                })
+            }
+
+            onMounted(() => {
+                ready.value = true
+                window.addEventListener('scroll', updateActive, { passive: true })
+                updateActive()
+            })
+
+            onUnmounted(() => {
+                window.removeEventListener('scroll', updateActive)
+            })
+
+            return { ready, message_list }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

@@ -1,0 +1,1077 @@
+{% extends 'base.html' %}
+{% block page_title %}Settings{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/config/config.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/components/ansi-terminal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Settings</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Interface Settings</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="row g-3">
+
+                {# ── Left column — sections ──────────────────────── #}
+                <div class="col-12 col-lg-8">
+
+                    {# Theme ─────────────────────────────────────── #}
+                    <div id="section-theme" class="card mb-3">
+                        <div class="card-body">
+                            <div class="settings-card-header mb-3">
+                                <div class="settings-card-icon"><i class="fas fa-palette"></i></div>
+                                <div>
+                                    <h6 class="settings-section-title mb-0">Theme</h6>
+                                    <p class="text-muted small mb-0">Choose the color scheme for the interface.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-theme-group">
+                                <div v-for="option in theme_options" :key="option.value"
+                                     class="settings-theme-card"
+                                     :class="{ active: theme === option.value }"
+                                     @click="setTheme(option.value)">
+                                    <div class="theme-preview"
+                                         :class="option.is_custom ? 'theme-preview--custom' : 'theme-preview--' + option.value"
+                                         :style="option.is_custom ? getPreviewStyle(option) : {}">
+                                        <div class="tp-sidebar">
+                                            <div class="tp-logo"></div>
+                                            <div class="tp-nav-item tp-nav-item--active"></div>
+                                            <div class="tp-nav-item"></div>
+                                            <div class="tp-nav-item"></div>
+                                        </div>
+                                        <div class="tp-main">
+                                            <div class="tp-topbar"></div>
+                                            <div class="tp-content">
+                                                <div class="tp-card">
+                                                    <div class="tp-line tp-line--title"></div>
+                                                    <div class="tp-line"></div>
+                                                    <div class="tp-line tp-line--short"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-theme-label">
+                                        <i :class="'fas ' + option.icon"></i>
+                                        <span>[[ option.label ]]</span>
+                                        <i v-if="theme === option.value" class="fas fa-circle-check ms-auto text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if is_super_admin %}
+                    {# Theme Studio — super admin only ───────────── #}
+                    <div id="section-theme-studio" class="card mb-3">
+                        <div class="card-body">
+                            <div class="settings-card-header mb-3">
+                                <div class="settings-card-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+                                <div class="flex-1">
+                                    <h6 class="settings-section-title mb-0">Theme Studio</h6>
+                                    <p class="text-muted small mb-0">Create custom themes and override built-in ones.</p>
+                                </div>
+                                <button class="btn btn-sm btn-primary" @click="openCreateModal()">
+                                    <i class="fas fa-plus me-1"></i>New theme
+                                </button>
+                            </div>
+
+                            {# Custom themes list #}
+                            <p class="settings-sub-label">Custom themes</p>
+                            <div class="ts-theme-list mb-4" v-if="studio_themes.filter(t => !t.is_builtin).length">
+                                <div v-for="t in studio_themes.filter(t => !t.is_builtin)" :key="t.uuid"
+                                     class="ts-theme-row">
+                                    <div class="ts-theme-icon">
+                                        <i :class="'fas ' + t.icon"></i>
+                                    </div>
+                                    <div class="ts-theme-info">
+                                        <div class="ts-theme-name">[[ t.name ]]</div>
+                                        <div class="ts-theme-meta">
+                                            <span class="badge rounded-pill"
+                                                  :class="t.is_dark ? 'bg-secondary-subtle text-secondary-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
+                                                [[ t.is_dark ? 'Dark' : 'Light' ]]
+                                            </span>
+                                            <span class="ms-1 font-mono small">[[ t.css_key ]]</span>
+                                        </div>
+                                    </div>
+                                    <div class="ts-theme-actions align-items-center">
+                                        <button class="settings-toggle-btn me-1"
+                                                :class="{ active: t.is_public }"
+                                                :title="t.is_public ? 'Public — click to make private' : 'Private — click to publish'"
+                                                @click="toggleVisibility(t)">
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                        </button>
+                                        <span class="small me-2"
+                                              :class="t.is_public ? 'text-success' : 'text-muted'"
+                                              style="font-size:0.72rem;min-width:42px;">
+                                            [[ t.is_public ? 'Public' : 'Private' ]]
+                                        </span>
+                                        <button class="btn-icon" title="Edit" @click="openEditModal(t)">
+                                            <i class="fas fa-pen"></i>
+                                        </button>
+                                        <button class="btn-icon" title="Delete" @click="deleteTheme(t)">
+                                            <i class="fas fa-trash text-danger"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p v-else class="text-muted small mb-4">No custom themes yet. Click "New theme" to create one.</p>
+
+                            {# Built-in theme overrides #}
+                            <p class="settings-sub-label">Override built-in themes</p>
+                            <div class="ts-builtin-grid">
+                                <div v-for="key in builtin_keys" :key="key"
+                                     class="ts-builtin-card"
+                                     @click="openBuiltinModal(key)">
+                                    <i :class="'fas ' + builtin_meta[key].icon"></i>
+                                    <span>[[ builtin_meta[key].label ]]</span>
+                                    <span v-if="studio_themes.find(t => t.css_key === key && t.is_builtin)"
+                                          class="badge bg-primary-subtle text-primary-emphasis"
+                                          style="font-size:0.6rem;">Modified</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Navigation layout ─────────────────────────── #}
+                    <div id="section-nav" class="card mb-3">
+                        <div class="card-body">
+                            <div class="settings-card-header mb-3">
+                                <div class="settings-card-icon"><i class="fas fa-table-columns"></i></div>
+                                <div>
+                                    <h6 class="settings-section-title mb-0">Navigation layout</h6>
+                                    <p class="text-muted small mb-0">Choose how navigation is displayed. Takes effect on the next page load.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-nav-group">
+                                <div v-for="option in nav_options" :key="option.value"
+                                     class="settings-nav-card"
+                                     :class="{ active: nav_position === option.value }"
+                                     @click="setNavPosition(option.value)">
+                                    <div class="nav-preview" :class="'nav-preview--' + option.value">
+                                        <template v-if="option.value === 'sidebar'">
+                                            <div class="np-sidebar">
+                                                <div class="np-item np-item--active"></div>
+                                                <div class="np-item"></div>
+                                                <div class="np-item"></div>
+                                            </div>
+                                            <div class="np-main">
+                                                <div class="np-topbar"></div>
+                                                <div class="np-content"></div>
+                                            </div>
+                                        </template>
+                                        <template v-else-if="option.value === 'topbar'">
+                                            <div class="np-full">
+                                                <div class="np-topbar np-topbar--nav">
+                                                    <div class="np-brand"></div>
+                                                    <div class="np-link np-link--active"></div>
+                                                    <div class="np-link"></div>
+                                                    <div class="np-link"></div>
+                                                </div>
+                                                <div class="np-content-wide"></div>
+                                            </div>
+                                        </template>
+                                        <template v-else-if="option.value === 'rail'">
+                                            <div class="np-rail">
+                                                <div class="np-rail-item np-rail-item--active">
+                                                    <div class="np-rail-dot"></div>
+                                                    <div class="np-rail-line"></div>
+                                                </div>
+                                                <div class="np-rail-item">
+                                                    <div class="np-rail-dot"></div>
+                                                    <div class="np-rail-line"></div>
+                                                </div>
+                                                <div class="np-rail-item">
+                                                    <div class="np-rail-dot"></div>
+                                                    <div class="np-rail-line"></div>
+                                                </div>
+                                            </div>
+                                            <div class="np-rail-content">
+                                                <div class="np-rail-topbar"></div>
+                                                <div class="np-rail-main"></div>
+                                            </div>
+                                        </template>
+                                        <template v-else>
+                                            <div class="np-full">
+                                                <div class="np-topbar--hidden">
+                                                    <div class="np-hamburger">
+                                                        <span></span><span></span><span></span>
+                                                    </div>
+                                                </div>
+                                                <div class="np-hidden-content"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="settings-nav-label">
+                                        <i :class="'fas ' + option.icon"></i>
+                                        <div>
+                                            <span class="fw-semibold">[[ option.label ]]</span>
+                                            <span class="text-muted d-block" style="font-size:0.72rem;">[[ option.description ]]</span>
+                                        </div>
+                                        <i v-if="nav_position === option.value" class="fas fa-circle-check ms-auto text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Notifications ──────────────────────────────── #}
+                    <div id="section-notifications" class="card mb-3">
+                        <div class="card-body">
+                            <div class="settings-card-header mb-3">
+                                <div class="settings-card-icon"><i class="fas fa-bell"></i></div>
+                                <div>
+                                    <h6 class="settings-section-title mb-0">Notifications</h6>
+                                    <p class="text-muted small mb-0">Where and how toasts appear.</p>
+                                </div>
+                            </div>
+
+                            <p class="settings-sub-label">Position</p>
+                            <div class="settings-toast-position-group mb-4">
+                                <button v-for="opt in toast_position_options" :key="opt.value"
+                                        class="settings-toast-pos-btn"
+                                        :class="{ active: toast_position === opt.value }"
+                                        @click="setToastPosition(opt.value)"
+                                        :title="opt.label">
+                                    <div class="tpos-preview" :class="'tpos-preview--' + opt.value">
+                                        <span class="tpos-dot"></span>
+                                    </div>
+                                    <span class="tpos-label">[[ opt.label ]]</span>
+                                </button>
+                            </div>
+
+                            <p class="settings-sub-label">Duration</p>
+                            <div class="d-flex align-items-center gap-3 mb-4">
+                                <span class="text-muted small flex-shrink-0">2s</span>
+                                <input type="range" class="form-range flex-1" min="2" max="10" step="1"
+                                       v-model.number="toast_duration"
+                                       @change="setToastDuration(toast_duration)">
+                                <span class="text-muted small flex-shrink-0">10s</span>
+                                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill"
+                                      style="min-width:2.5rem;text-align:center;">
+                                    [[ toast_duration ]]s
+                                </span>
+                            </div>
+
+                            <p class="settings-sub-label">Style</p>
+                            <div class="settings-toast-style-group mb-4">
+                                <div v-for="opt in toast_style_options" :key="opt.value"
+                                     class="settings-toast-style-card"
+                                     :class="{ active: toast_style === opt.value }"
+                                     @click="setToastStyle(opt.value)">
+                                    <div class="toast-style-preview" :class="'tsp--' + opt.value">
+                                        <div class="tsp-stripe"></div>
+                                        <div class="tsp-icon"></div>
+                                        <div class="tsp-lines">
+                                            <div class="tsp-line tsp-line--title"></div>
+                                            <div class="tsp-line"></div>
+                                        </div>
+                                    </div>
+                                    <span class="tsp-label">
+                                        [[ opt.label ]]
+                                        <i v-if="toast_style === opt.value" class="fas fa-circle-check ms-1 text-primary" style="font-size:.65rem;"></i>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-top d-flex justify-content-end">
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @click="previewToast()"
+                                        :disabled="preview_disabled">
+                                    <i :class="preview_disabled ? 'fas fa-hourglass-half' : 'fas fa-bell'" class="me-1"></i>
+                                    [[ preview_disabled ? 'Wait…' : 'Send test notification' ]]
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Terminal preview ───────────────────────────── #}
+                    <div id="section-terminal" class="card mb-3">
+                        <div class="card-body">
+                            <div class="settings-card-header mb-3">
+                                <div class="settings-card-icon"><i class="fas fa-terminal"></i></div>
+                                <div>
+                                    <h6 class="settings-section-title mb-0">Terminal</h6>
+                                    <p class="text-muted small mb-0">Preview the terminal component.</p>
+                                </div>
+                            </div>
+                            <ansi-terminal
+                                :entries="terminal_demo_entries"
+                                title="demo"
+                                :live="false"
+                                @clear="terminal_demo_entries.length = 0">
+                            </ansi-terminal>
+                        </div>
+                    </div>
+
+                </div>
+
+                {# ── Right column ─────────────────────────────────── #}
+                <div class="col-12 col-lg-4">
+                <div style="position:sticky;top:calc(var(--topbar-height, 56px) + 1rem);">
+
+                    {# Anchor nav #}
+                    <div class="card mb-3">
+                        <div class="card-body p-2">
+                            <p class="settings-sub-label px-2 pt-1 mb-1">On this page</p>
+                            <nav>
+                                <a v-for="sec in sections" :key="sec.id"
+                                   class="settings-anchor-link"
+                                   :class="{ active: active_section === sec.id }"
+                                   href="javascript:void(0)"
+                                   @click="scrollToSection(sec.id)">
+                                    <span class="settings-anchor-indicator"></span>
+                                    <i :class="'fas ' + sec.icon"></i>
+                                    [[ sec.label ]]
+                                </a>
+                            </nav>
+                        </div>
+                    </div>
+
+                    {# Quick settings #}
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="settings-section-title mb-3">
+                                <i class="fas fa-sliders me-2 text-primary"></i>Quick settings
+                            </h6>
+
+                            <div class="settings-toggle-row">
+                                <div class="settings-toggle-info">
+                                    <span class="settings-toggle-label">Collapsed sidebar</span>
+                                    <span class="text-muted small d-block">Start with icons-only sidebar</span>
+                                </div>
+                                <button class="settings-toggle-btn"
+                                        :class="{ active: sidebar_collapsed }"
+                                        @click="toggleSidebarCollapsed()"
+                                        :title="sidebar_collapsed ? 'Sidebar is collapsed' : 'Sidebar is expanded'">
+                                    <span class="toggle-track">
+                                        <span class="toggle-thumb"></span>
+                                    </span>
+                                </button>
+                            </div>
+
+                            <hr class="divider my-3">
+
+                            <div class="settings-summary">
+                                <p class="text-muted small fw-semibold text-uppercase mb-2"
+                                   style="letter-spacing:.05em;font-size:.65rem;">Current settings</p>
+                                <div class="settings-summary-row">
+                                    <span class="text-muted small">Theme</span>
+                                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill small">[[ theme ]]</span>
+                                </div>
+                                <div class="settings-summary-row">
+                                    <span class="text-muted small">Navigation</span>
+                                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill small">[[ nav_position ]]</span>
+                                </div>
+                                <div class="settings-summary-row">
+                                    <span class="text-muted small">Sidebar</span>
+                                    <span class="badge rounded-pill small"
+                                          :class="sidebar_collapsed ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis'">
+                                        [[ sidebar_collapsed ? 'collapsed' : 'expanded' ]]
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Save status #}
+                    <div class="settings-save-status mt-2" :class="save_status">
+                        <template v-if="save_status === 'saving'">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>Saving…
+                        </template>
+                        <template v-else-if="save_status === 'saved'">
+                            <i class="fas fa-circle-check me-2"></i>Saved
+                        </template>
+                        <template v-else-if="save_status === 'error'">
+                            <i class="fas fa-circle-xmark me-2"></i>Save failed
+                        </template>
+                    </div>
+
+                </div>{# end sticky wrapper #}
+                </div>{# end col #}
+            </div>
+        </div>
+    </div>
+</div>
+{% if is_super_admin %}
+{# Theme Studio modal #}
+<div class="modal fade" id="themeStudioModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:var(--bg-surface);border-color:var(--border);">
+            <div class="modal-header" style="border-color:var(--border);">
+                <h5 class="modal-title">
+                    <i class="fas fa-wand-magic-sparkles me-2 text-primary"></i>
+                    [[ modal_title ]]
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body ts-modal-body">
+
+                {# Name / icon / mode — only for custom themes #}
+                <div v-if="!modal_is_builtin" class="row g-3 mb-3">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Theme name</label>
+                        <input type="text" class="form-control" v-model="modal_form.name"
+                               placeholder="My Theme" maxlength="64">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Icon</label>
+                        <div class="ip-wrapper" v-click-outside="() => show_icon_picker = false">
+                            <div class="ip-trigger" @click="show_icon_picker = !show_icon_picker">
+                                <i :class="'fas ' + (modal_form.icon || 'fa-palette')"></i>
+                                <span>[[ modal_form.icon || 'fa-palette' ]]</span>
+                                <i class="fas fa-chevron-down ip-caret"></i>
+                            </div>
+                            <div v-if="show_icon_picker" class="ip-dropdown mt-1">
+                                <input type="text" class="form-control form-control-sm ip-search"
+                                       v-model="icon_search" placeholder="Search icons…" autofocus>
+                                <div class="ip-grid">
+                                    <button v-for="ic in filteredIcons" :key="ic"
+                                            class="ip-btn"
+                                            :class="{ active: modal_form.icon === ic }"
+                                            :title="ic"
+                                            @click="pickIcon(ic)">
+                                        <i :class="'fas ' + ic"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select" v-model="modal_form.is_dark">
+                            <option :value="false">Light</option>
+                            <option :value="true">Dark</option>
+                        </select>
+                    </div>
+                </div>
+                <div v-else class="alert alert-info py-2 px-3 mb-3" style="font-size:0.82rem;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Editing <strong>[[ modal_title ]]</strong>. Leave a field empty to use the default value.
+                    <button v-if="modal_editing_uuid" class="btn btn-sm btn-outline-danger ms-2" @click="resetBuiltin()">
+                        Reset to defaults
+                    </button>
+                </div>
+
+                {# Tabs: Paste CSS vs Fill manually #}
+                <ul class="nav nav-tabs mb-0">
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{ active: modal_tab === 'manual' }"
+                           href="javascript:void(0)" @click="modal_tab = 'manual'">
+                            <i class="fas fa-sliders me-1"></i>Fill manually
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{ active: modal_tab === 'paste' }"
+                           href="javascript:void(0)" @click="modal_tab = 'paste'">
+                            <i class="fas fa-paste me-1"></i>Paste CSS
+                        </a>
+                    </li>
+                </ul>
+
+                {# Tab: Paste CSS #}
+                <div v-if="modal_tab === 'paste'" class="tab-content">
+                    <p class="text-muted small mb-2">
+                        Paste a CSS block like <code>[data-theme="name"] {{ '{' }} ... {{ '}' }}</code> — the variables will be extracted automatically.
+                    </p>
+                    <textarea class="form-control font-mono mb-3" v-model="paste_input" rows="12"
+                              style="font-size:0.78rem;resize:vertical;"
+                              placeholder="[data-theme=&quot;my-theme&quot;] {&#10;    --brand: #4A90D9;&#10;    --bg-body: #0C1422;&#10;    ...&#10;}"></textarea>
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button class="btn btn-sm btn-primary" @click="parsePaste()">
+                            <i class="fas fa-wand-sparkles me-1"></i>Import variables
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" @click="paste_input = ''; paste_result = null">
+                            Clear
+                        </button>
+                    </div>
+
+                    <div v-if="paste_result" class="p-3 rounded" style="background:var(--bg-elevated);border:1px solid var(--border);">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge bg-success-subtle text-success-emphasis">
+                                <i class="fas fa-check me-1"></i>[[ paste_result.found ]] vars imported
+                            </span>
+                            <span v-if="paste_result.missing.length" class="badge bg-warning-subtle text-warning-emphasis">
+                                <i class="fas fa-triangle-exclamation me-1"></i>[[ paste_result.missing.length ]] missing
+                            </span>
+                        </div>
+                        <div v-if="paste_result.missing.length">
+                            <p class="text-muted small mb-1">Missing — will use defaults:</p>
+                            <div class="d-flex flex-wrap gap-1">
+                                <code v-for="v in paste_result.missing" :key="v"
+                                      class="badge bg-secondary-subtle text-secondary-emphasis"
+                                      style="font-size:0.68rem;">[[ v ]]</code>
+                            </div>
+                        </div>
+                        <p v-else class="text-success small mb-0">
+                            <i class="fas fa-circle-check me-1"></i>All variables found — switch to "Fill manually" to review.
+                        </p>
+                    </div>
+                </div>
+
+                {# Tab: Fill manually #}
+                <div v-if="modal_tab === 'manual'" class="tab-content">
+                    <div v-for="group in var_groups" :key="group.label" class="ts-var-group">
+                        <div class="ts-var-group-label">[[ group.label ]]</div>
+                        <div class="ts-vars-grid">
+                            <div v-for="v in group.vars" :key="v" class="ts-var-row">
+                                <label class="ts-var-label">[[ v ]]</label>
+                                <input type="text" class="form-control form-control-sm ts-var-input"
+                                       v-model="modal_form.css_vars[v]"
+                                       :class="{ 'border-success': modal_form.css_vars[v] }"
+                                       :placeholder="'e.g. ' + var_placeholders[v]">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer" style="border-color:var(--border);">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" @click="saveTheme()" :disabled="modal_saving">
+                    <span v-if="modal_saving" class="spinner-border spinner-border-sm me-1"></span>
+                    <i v-else class="fas fa-floppy-disk me-1"></i>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar    from '/static/js/components/loading-bar.js'
+    import AnsiTerminal  from '/static/js/components/ansi-terminal.js'
+
+    const IS_SUPER_ADMIN = {{ 'true' if is_super_admin else 'false' }}
+
+    const ICON_LIST = [
+        'fa-palette','fa-paintbrush','fa-wand-magic-sparkles','fa-star','fa-moon','fa-sun',
+        'fa-water','fa-tree','fa-leaf','fa-fire','fa-snowflake','fa-cloud',
+        'fa-bolt','fa-rainbow','fa-mountain','fa-wind',
+        'fa-layer-group','fa-circle-half-stroke','fa-adjust','fa-eye',
+        'fa-heart','fa-diamond','fa-gem','fa-crown','fa-trophy','fa-medal',
+        'fa-rocket','fa-globe','fa-earth-americas','fa-map','fa-compass',
+        'fa-cube','fa-cubes','fa-shapes','fa-draw-polygon',
+        'fa-code','fa-terminal','fa-microchip','fa-robot','fa-brain',
+        'fa-flask','fa-atom','fa-dna','fa-infinity',
+        'fa-music','fa-headphones','fa-camera','fa-film','fa-tv',
+        'fa-gamepad','fa-chess','fa-dice',
+        'fa-coffee','fa-mug-hot','fa-utensils',
+        'fa-book','fa-bookmark','fa-pen','fa-pencil','fa-feather',
+        'fa-briefcase','fa-building','fa-city','fa-house',
+        'fa-lock','fa-shield-halved','fa-key',
+        'fa-user','fa-users','fa-person',
+        'fa-chart-bar','fa-chart-line','fa-chart-pie',
+        'fa-bell','fa-flag','fa-tag','fa-tags',
+        'fa-circle','fa-square','fa-triangle-exclamation',
+    ]
+    const BUILTIN_KEYS   = {{ builtin_overridable | tojson | safe }}
+    const BUILTIN_META   = {
+        dark:     { label: 'Dark',     icon: 'fa-moon'        },
+        ocean:    { label: 'Ocean',    icon: 'fa-water'       },
+        forest:   { label: 'Forest',   icon: 'fa-tree'        },
+        midnight: { label: 'Midnight', icon: 'fa-star'        },
+        slate:    { label: 'Slate',    icon: 'fa-layer-group' },
+    }
+    const VAR_GROUPS = [
+        { label: 'Brand',               vars: ['--brand', '--brand-dim', '--brand-glow'] },
+        { label: 'Backgrounds',         vars: ['--bg-body', '--bg-surface', '--bg-elevated', '--bg-sidebar'] },
+        { label: 'Text',                vars: ['--text-main', '--text-secondary', '--text-muted', '--text-sidebar', '--text-sidebar-muted'] },
+        { label: 'Borders',             vars: ['--border', '--border-subtle', '--border-sidebar'] },
+        { label: 'Sidebar interactions',vars: ['--sidebar-hover', '--sidebar-active'] },
+        { label: 'Shadows',             vars: ['--shadow-sm', '--shadow-md', '--shadow-lg'] },
+    ]
+    const VAR_PLACEHOLDERS = {
+        '--brand': '#D4522A', '--brand-dim': 'rgba(212,82,42,0.12)', '--brand-glow': 'rgba(212,82,42,0.25)',
+        '--bg-body': '#F5F1EC', '--bg-surface': '#FFFFFF', '--bg-elevated': '#FAF8F5', '--bg-sidebar': '#141210',
+        '--text-main': '#1A1714', '--text-secondary': '#5C5550', '--text-muted': '#9A9390',
+        '--text-sidebar': 'rgba(255,255,255,0.87)', '--text-sidebar-muted': 'rgba(255,255,255,0.38)',
+        '--border': 'rgba(26,23,20,0.09)', '--border-subtle': 'rgba(26,23,20,0.05)', '--border-sidebar': 'rgba(255,255,255,0.07)',
+        '--sidebar-hover': 'rgba(255,255,255,0.06)', '--sidebar-active': 'rgba(255,255,255,0.10)',
+        '--shadow-sm': '0 1px 2px rgba(0,0,0,.05)', '--shadow-md': '0 4px 16px rgba(0,0,0,.08)', '--shadow-lg': '0 12px 40px rgba(0,0,0,.12)',
+    }
+
+    function emptyVars() {
+        const o = {}
+        VAR_GROUPS.forEach(g => g.vars.forEach(v => { o[v] = '' }))
+        return o
+    }
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, AnsiTerminal },
+        setup() {
+            const page_is_loading   = ref(false)
+            const theme             = ref('{{ config.theme if config else "system" }}')
+            const nav_position      = ref('{{ config.nav_position if config else "sidebar" }}')
+            const sidebar_collapsed = ref({{ 'true' if config and config.sidebar_collapsed else 'false' }})
+            const toast_position    = ref('{{ config.toast_position if config else "top-right" }}')
+            const toast_style       = ref('{{ config.toast_style if config else "card" }}')
+            const toast_duration    = ref({{ config.toast_duration if config and config.toast_duration else 5 }})
+            const save_status       = ref('')
+
+            const _now = () => new Date().toISOString()
+            const terminal_demo_entries = ref([
+                { ts: _now(), msg: 'Flask-Launchpad v2.1.0 started',           level: 'success' },
+                { ts: _now(), msg: 'Database connection established',           level: 'info'    },
+                { ts: _now(), msg: 'Loading feature flags from config…',        level: 'info'    },
+                { ts: _now(), msg: '5 features enabled, 1 disabled',            level: 'success' },
+                { ts: _now(), msg: 'SMTP host not configured — emails disabled',level: 'warning' },
+                { ts: _now(), msg: 'Static files collected (342 files)',        level: 'info'    },
+                { ts: _now(), msg: 'Background job runner started (4 workers)', level: 'success' },
+                { ts: _now(), msg: 'Session key regenerated — restart required',level: 'warning' },
+                { ts: _now(), msg: '\x1b[32mAll systems go.\x1b[0m Ready to serve requests.', level: 'info' },
+            ])
+            const preview_disabled  = ref(false)
+            const active_section    = ref('section-theme')
+
+            // ── Theme Studio ─────────────────────────────────────
+            const studio_themes      = ref([])
+            const modal_title        = ref('')
+            const modal_is_builtin   = ref(false)
+            const modal_editing_uuid = ref(null)
+            const modal_builtin_key  = ref(null)
+            const modal_saving       = ref(false)
+            const modal_tab          = ref('manual')
+            const paste_input        = ref('')
+            const paste_result       = ref(null)
+            const show_icon_picker   = ref(false)
+            const icon_search        = ref('')
+            const modal_form         = reactive({ name: '', icon: 'fa-palette', is_dark: false, css_vars: emptyVars() })
+
+            const filteredIcons = computed(() => {
+                const q = icon_search.value.toLowerCase()
+                return q ? ICON_LIST.filter(ic => ic.includes(q)) : ICON_LIST
+            })
+
+            function pickIcon(ic) {
+                modal_form.icon    = ic
+                show_icon_picker.value = false
+                icon_search.value  = ''
+            }
+
+            const builtin_keys  = BUILTIN_KEYS
+            const builtin_meta  = BUILTIN_META
+            const var_groups    = VAR_GROUPS
+            const var_placeholders = VAR_PLACEHOLDERS
+
+            let _modal = null
+
+            function getPreviewStyle(option) {
+                const v = option.css_vars || {}
+                return {
+                    '--tp-body':       v['--bg-body']        || (option.is_dark ? '#1A171D' : '#F5F1EC'),
+                    '--tp-sidebar':    v['--bg-sidebar']     || '#141210',
+                    '--tp-surface':    v['--bg-surface']     || (option.is_dark ? '#242129' : '#FFFFFF'),
+                    '--tp-brand':      v['--brand']          || '#D4522A',
+                    '--tp-brand-dim':  v['--brand-dim']      || 'rgba(212,82,42,0.5)',
+                    '--tp-border':     v['--border']         || (option.is_dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'),
+                    '--tp-line':       v['--border-subtle']  || (option.is_dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
+                    '--tp-nav-item':   'rgba(255,255,255,0.12)',
+                    '--tp-nav-active': v['--sidebar-active'] || 'rgba(255,255,255,0.35)',
+                }
+            }
+
+            async function loadStudioThemes() {
+                const res = await apiFetch('/api/config/themes', 'GET')
+                if (res.ok) {
+                    const data = await res.json()
+                    studio_themes.value = data.themes || []
+                    // merge custom themes into theme_options
+                    const existing = new Set(theme_options.map(t => t.value))
+                    for (const t of data.themes) {
+                        if (!t.is_builtin && !existing.has(t.css_key)) {
+                            theme_options.push({
+                                value:    t.css_key,
+                                label:    t.name,
+                                icon:     t.icon,
+                                is_custom: true,
+                                is_dark:  t.is_dark,
+                                css_vars: t.css_vars || {},
+                            })
+                            existing.add(t.css_key)
+                        }
+                    }
+                }
+            }
+
+            const ALL_VARS = VAR_GROUPS.flatMap(g => g.vars)
+
+            function parsePaste() {
+                const text = paste_input.value
+                const found_vars = []
+                const missing    = []
+                for (const v of ALL_VARS) {
+                    const escaped = v.replace(/[-]/g, '\\-')
+                    const re = new RegExp(escaped + '\\s*:\\s*([^;\\n]+);')
+                    const m  = text.match(re)
+                    if (m) {
+                        modal_form.css_vars[v] = m[1].trim()
+                        found_vars.push(v)
+                    } else {
+                        missing.push(v)
+                    }
+                }
+                // try to extract theme name from selector
+                const selectorMatch = text.match(/\[data-theme="([^"]+)"\]/)
+                if (selectorMatch && !modal_form.name) {
+                    modal_form.name = selectorMatch[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                }
+                paste_result.value = { found: found_vars.length, missing }
+            }
+
+            function _resetForm() {
+                modal_form.name    = ''
+                modal_form.icon    = 'fa-palette'
+                modal_form.is_dark = false
+                const vars = emptyVars()
+                Object.keys(modal_form.css_vars).forEach(k => { modal_form.css_vars[k] = vars[k] })
+                modal_tab.value        = 'manual'
+                paste_input.value      = ''
+                paste_result.value     = null
+                show_icon_picker.value = false
+                icon_search.value      = ''
+            }
+
+            function buildCssBlock(cssKey, cssVars) {
+                const lines = [`[data-theme="${cssKey}"] {`]
+                for (const group of VAR_GROUPS) {
+                    lines.push('')
+                    for (const v of group.vars) {
+                        const val = (cssVars || {})[v]
+                        if (val) lines.push(`    ${v}: ${val};`)
+                    }
+                }
+                lines.push('}')
+                return lines.join('\n')
+            }
+
+            function _fillForm(theme) {
+                modal_form.name    = theme.name
+                modal_form.icon    = theme.icon
+                modal_form.is_dark = theme.is_dark
+                const vars = emptyVars()
+                for (const k of Object.keys(vars)) {
+                    modal_form.css_vars[k] = (theme.css_vars || {})[k] || ''
+                }
+                paste_input.value  = buildCssBlock(theme.css_key, theme.css_vars)
+                paste_result.value = null
+            }
+
+            function openCreateModal() {
+                _resetForm()
+                modal_title.value        = 'New custom theme'
+                modal_is_builtin.value   = false
+                modal_editing_uuid.value = null
+                modal_builtin_key.value  = null
+                _modal.show()
+            }
+
+            function openEditModal(t) {
+                _fillForm(t)
+                modal_title.value        = `Edit "${t.name}"`
+                modal_is_builtin.value   = false
+                modal_editing_uuid.value = t.uuid
+                modal_builtin_key.value  = null
+                _modal.show()
+            }
+
+            function openBuiltinModal(key) {
+                _resetForm()
+                const existing = studio_themes.value.find(t => t.css_key === key && t.is_builtin)
+                if (existing) {
+                    _fillForm(existing)
+                } else {
+                    paste_input.value = `[data-theme="${key}"] {\n    /* paste your overrides here */\n}`
+                }
+                modal_title.value        = `Override "${BUILTIN_META[key].label}" theme`
+                modal_is_builtin.value   = true
+                modal_editing_uuid.value = existing ? existing.uuid : null
+                modal_builtin_key.value  = key
+                _modal.show()
+            }
+
+            async function saveTheme() {
+                modal_saving.value = true
+                const css_vars = {}
+                for (const [k, v] of Object.entries(modal_form.css_vars)) {
+                    if (v) css_vars[k] = v
+                }
+                let res
+                if (modal_is_builtin.value) {
+                    res = await apiFetch(`/api/config/themes/builtin/${modal_builtin_key.value}`, 'PUT', { css_vars })
+                } else if (modal_editing_uuid.value) {
+                    res = await apiFetch(`/api/config/themes/${modal_editing_uuid.value}`, 'PUT', {
+                        name: modal_form.name, icon: modal_form.icon,
+                        is_dark: modal_form.is_dark, css_vars,
+                    })
+                } else {
+                    res = await apiFetch('/api/config/themes', 'POST', {
+                        name: modal_form.name, icon: modal_form.icon,
+                        is_dark: modal_form.is_dark, css_vars,
+                    })
+                }
+                modal_saving.value = false
+                if (res.ok) {
+                    _modal.hide()
+                    await create_message('Theme saved', TOAST.SUCCESS)
+                    await loadStudioThemes()
+                    // reload to apply new CSS
+                    setTimeout(() => window.location.reload(), 800)
+                } else {
+                    const d = await res.json()
+                    await create_message(d.message || 'Error saving theme', TOAST.ERROR, true)
+                }
+            }
+
+            async function toggleVisibility(t) {
+                const next = !t.is_public
+                const res  = await apiFetch(`/api/config/themes/${t.uuid}/visibility`, 'PATCH', { is_public: next })
+                if (res.ok) {
+                    t.is_public = next
+                    await create_message(next ? `"${t.name}" is now public` : `"${t.name}" is now private`, TOAST.SUCCESS)
+                } else {
+                    const d = await res.json()
+                    await create_message(d.message || 'Error', TOAST.ERROR, true)
+                }
+            }
+
+            async function deleteTheme(t) {
+                if (!confirm(`Delete theme "${t.name}"? This cannot be undone.`)) return
+                const res = await apiFetch(`/api/config/themes/${t.uuid}`, 'DELETE')
+                if (res.ok) {
+                    await create_message('Theme deleted', TOAST.SUCCESS)
+                    await loadStudioThemes()
+                    setTimeout(() => window.location.reload(), 800)
+                } else {
+                    const d = await res.json()
+                    await create_message(d.message || 'Error', TOAST.ERROR, true)
+                }
+            }
+
+            async function resetBuiltin() {
+                if (!confirm('Reset this theme to default values?')) return
+                const res = await apiFetch(`/api/config/themes/builtin/${modal_builtin_key.value}`, 'DELETE')
+                if (res.ok) {
+                    _modal.hide()
+                    await create_message('Theme reset to defaults', TOAST.SUCCESS)
+                    await loadStudioThemes()
+                    setTimeout(() => window.location.reload(), 800)
+                } else {
+                    const d = await res.json()
+                    await create_message(d.message || 'Error', TOAST.ERROR, true)
+                }
+            }
+
+            let save_timer  = null
+            let observer    = null
+
+            // ── Section definitions (anchor nav) ────────────────
+            const sections = [
+                { id: 'section-theme',         label: 'Theme',         icon: 'fa-palette'       },
+                { id: 'section-nav',           label: 'Navigation',    icon: 'fa-table-columns' },
+                { id: 'section-notifications', label: 'Notifications', icon: 'fa-bell'          },
+                { id: 'section-terminal',      label: 'Terminal',      icon: 'fa-terminal'      },
+            ]
+            if (IS_SUPER_ADMIN) {
+                sections.splice(1, 0, { id: 'section-theme-studio', label: 'Theme Studio', icon: 'fa-wand-magic-sparkles' })
+            }
+
+            const theme_options = [
+                { value: 'system',    label: 'System',    icon: 'fa-circle-half-stroke' },
+                { value: 'light',     label: 'Light',     icon: 'fa-sun'                },
+                { value: 'dark',      label: 'Dark',      icon: 'fa-moon'               },
+                { value: 'ocean',     label: 'Ocean',     icon: 'fa-water'              },
+                { value: 'slate',     label: 'Slate',     icon: 'fa-layer-group'        },
+                { value: 'forest',    label: 'Forest',    icon: 'fa-tree'               },
+                { value: 'midnight',  label: 'Midnight',  icon: 'fa-star'               },
+                { value: 'christmas', label: 'Christmas', icon: 'fa-snowflake'          },
+            ]
+
+            const nav_options = [
+                { value: 'sidebar', label: 'Sidebar', icon: 'fa-table-columns', description: 'Left panel with labels' },
+                { value: 'topbar',  label: 'Top bar', icon: 'fa-bars',          description: 'Horizontal navigation' },
+                { value: 'rail',    label: 'Rail',    icon: 'fa-grip-vertical',  description: 'Icons + mini labels'  },
+                { value: 'hidden',  label: 'Hidden',  icon: 'fa-eye-slash',      description: 'Open on demand'       },
+            ]
+
+            const toast_position_options = [
+                { value: 'top-right',     label: 'Top right'     },
+                { value: 'top-left',      label: 'Top left'      },
+                { value: 'top-center',    label: 'Top center'    },
+                { value: 'bottom-right',  label: 'Bottom right'  },
+                { value: 'bottom-left',   label: 'Bottom left'   },
+                { value: 'bottom-center', label: 'Bottom center' },
+            ]
+
+            const toast_style_options = [
+                { value: 'card',    label: 'Card'    },
+                { value: 'pill',    label: 'Pill'    },
+                { value: 'minimal', label: 'Minimal' },
+            ]
+
+            // ── Save helper ─────────────────────────────────────
+            async function savePreference(payload) {
+                save_status.value = 'saving'
+                clearTimeout(save_timer)
+                const res = await apiFetch('/config/update', 'POST', payload)
+                if (res.ok) {
+                    save_status.value = 'saved'
+                    save_timer = setTimeout(() => { save_status.value = '' }, 2000)
+                } else {
+                    save_status.value = 'error'
+                    await create_message('Failed to save settings', TOAST.ERROR, true)
+                }
+            }
+
+            // ── Settings actions ────────────────────────────────
+            async function setTheme(value) {
+                theme.value = value
+                applyTheme(value)
+                updateThemeIcon(value)
+                await savePreference({ theme: value })
+            }
+
+            async function setNavPosition(value) {
+                if (nav_position.value === value) return
+                nav_position.value = value
+                await savePreference({ nav_position: value })
+                window.location.reload()
+            }
+
+            async function setToastPosition(value) {
+                toast_position.value = value
+                const c = document.getElementById('appToastContainer')
+                if (c) c.dataset.position = value
+                await savePreference({ toast_position: value })
+                await create_message('Position updated', TOAST.INFO, false)
+            }
+
+            async function setToastStyle(value) {
+                toast_style.value = value
+                const c = document.getElementById('appToastContainer')
+                if (c) c.dataset.style = value
+                await savePreference({ toast_style: value })
+                await create_message('Style updated', TOAST.INFO, false)
+            }
+
+            async function setToastDuration(value) {
+                const c = document.getElementById('appToastContainer')
+                if (c) c.dataset.duration = value * 1000
+                await savePreference({ toast_duration: value })
+            }
+
+            async function toggleSidebarCollapsed() {
+                sidebar_collapsed.value = !sidebar_collapsed.value
+                const wrapper = document.getElementById('appWrapper')
+                if (wrapper) wrapper.classList.toggle('sidebar-collapsed', sidebar_collapsed.value)
+                const chevron = document.getElementById('sidebar-chevron')
+                if (chevron) {
+                    chevron.classList.toggle('fa-chevron-left',  !sidebar_collapsed.value)
+                    chevron.classList.toggle('fa-chevron-right', sidebar_collapsed.value)
+                }
+                await savePreference({ sidebar_collapsed: sidebar_collapsed.value })
+            }
+
+            // ── Preview toast (anti-spam) ────────────────────────
+            async function previewToast() {
+                if (preview_disabled.value) return
+                preview_disabled.value = true
+
+                const entries = [
+                    { msg: 'Settings saved successfully!',    type: TOAST.SUCCESS },
+                    { msg: 'Check your notifications.',       type: TOAST.INFO    },
+                    { msg: 'Something needs your attention.', type: TOAST.WARNING },
+                    { msg: 'An error occurred.',              type: TOAST.ERROR   },
+                ]
+                const pick = entries[Math.floor(Math.random() * entries.length)]
+                await create_message(pick.msg, pick.type, false)
+
+                setTimeout(() => { preview_disabled.value = false }, toast_duration.value * 1000 + 400)
+            }
+
+            // ── Anchor nav ──────────────────────────────────────
+            function scrollToSection(id) {
+                const el = document.getElementById(id)
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+
+            onMounted(async () => {
+                page_is_loading.value = true
+                await nextTick()
+
+                // Init Bootstrap modal
+                const modalEl = document.getElementById('themeStudioModal')
+                if (modalEl) _modal = new bootstrap.Modal(modalEl)
+
+                // Load custom themes — API returns only public ones for non-admins
+                await loadStudioThemes()
+
+                // Intersection observer to track active section
+                observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) active_section.value = entry.target.id
+                    })
+                }, { rootMargin: '-20% 0px -60% 0px', threshold: 0 })
+
+                sections.forEach(sec => {
+                    const el = document.getElementById(sec.id)
+                    if (el) observer.observe(el)
+                })
+            })
+
+            onUnmounted(() => { if (observer) observer.disconnect() })
+
+            return {
+                message_list,
+                page_is_loading,
+                theme, nav_position, sidebar_collapsed,
+                toast_position, toast_style, toast_duration,
+                save_status, preview_disabled, active_section,
+                sections, theme_options, nav_options,
+                toast_position_options, toast_style_options,
+                setTheme, setNavPosition,
+                setToastPosition, setToastStyle, setToastDuration,
+                toggleSidebarCollapsed, previewToast, scrollToSection,
+                terminal_demo_entries,
+                // Theme Studio
+                studio_themes, modal_title, modal_is_builtin, modal_editing_uuid,
+                modal_saving, modal_form, modal_tab, paste_input, paste_result,
+                show_icon_picker, icon_search, filteredIcons,
+                builtin_keys, builtin_meta, var_groups, var_placeholders,
+                openCreateModal, openEditModal, openBuiltinModal,
+                saveTheme, deleteTheme, resetBuiltin, getPreviewStyle, parsePaste, pickIcon, toggleVisibility,
+            }
+        },
+    }).directive('click-outside', {
+        mounted(el, binding) {
+            el._clickOutside = (e) => { if (!el.contains(e.target)) binding.value(e) }
+            document.addEventListener('mousedown', el._clickOutside)
+        },
+        unmounted(el) { document.removeEventListener('mousedown', el._clickOutside) },
+    }).mount('#main-container')
+</script>
+{% endblock %}

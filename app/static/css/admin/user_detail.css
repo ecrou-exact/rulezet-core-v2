@@ -1,0 +1,315 @@
+/*
+  admin/user_detail.css — Admin user detail page
+  Prefix: .ud-
+*/
+
+/*---PROFILE_HEADER---*/
+
+.ud-profile-header {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    margin-bottom: 1rem;
+}
+
+.ud-profile-banner {
+    height: 80px;
+    background: linear-gradient(135deg, var(--brand-dim) 0%, var(--brand-glow) 100%);
+}
+
+.ud-profile-body {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    padding: 0 1.25rem 1.25rem;
+    flex-wrap: wrap;
+}
+
+.ud-avatar-wrap {
+    margin-top: -36px;
+    flex-shrink: 0;
+}
+
+.ud-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--bg-surface);
+    object-fit: cover;
+    display: block;
+}
+
+.ud-avatar-initials {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--bg-surface);
+    background: var(--brand-dim);
+    color: var(--brand);
+    font-weight: 700;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ud-profile-info {
+    flex: 1;
+    min-width: 0;
+    padding-top: .5rem;
+}
+
+.ud-profile-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 .15rem;
+}
+
+.ud-profile-handle {
+    font-size: .8rem;
+    color: var(--text-muted);
+    margin: 0 0 .35rem;
+}
+
+.ud-profile-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .75rem;
+    font-size: .78rem;
+    color: var(--text-secondary);
+}
+
+.ud-profile-meta-item {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+}
+
+/*---INFO_ROWS---*/
+
+.ud-info-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.ud-info-row:last-child {
+    border-bottom: none;
+}
+
+.ud-info-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .72rem;
+    flex-shrink: 0;
+}
+
+.ud-info-label {
+    font-size: .73rem;
+    color: var(--text-muted);
+    line-height: 1;
+    margin-bottom: .15rem;
+}
+
+.ud-info-value {
+    font-size: .85rem;
+    color: var(--text-main);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+/*---SECTION_TITLE---*/
+
+.ud-section-title {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    margin: 0 0 .75rem;
+}
+
+/*---QUICK_ACTIONS---*/
+
+.ud-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.ud-action-btn {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    width: 100%;
+    text-align: left;
+}
+
+.ud-action-btn:hover {
+    background: var(--bg-surface);
+    border-color: var(--brand-glow);
+}
+
+.ud-action-btn--danger:hover {
+    background: rgba(239, 68, 68, .08);
+    border-color: rgba(239, 68, 68, .3);
+    color: #ef4444;
+}
+
+.ud-action-btn--warning:hover {
+    background: rgba(249, 115, 22, .08);
+    border-color: rgba(249, 115, 22, .3);
+    color: #f97316;
+}
+
+.ud-action-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    background: var(--brand-dim);
+    color: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .65rem;
+    flex-shrink: 0;
+}
+
+.ud-action-btn--danger .ud-action-icon {
+    background: rgba(239, 68, 68, .1);
+    color: #ef4444;
+}
+
+.ud-action-btn--warning .ud-action-icon {
+    background: rgba(249, 115, 22, .1);
+    color: #f97316;
+}
+
+/*---ACTIVITY_CHART---*/
+
+.ud-chart-wrap {
+    width: 100%;
+    height: 160px;
+}
+
+.ud-chart-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: .75rem;
+    flex-wrap: wrap;
+}
+
+.ud-chart-stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.ud-chart-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.ud-chart-stat-label {
+    font-size: .72rem;
+    color: var(--text-muted);
+}
+
+/*---RECENT_LOGS---*/
+
+.ud-log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: .8rem;
+}
+
+.ud-log-row:last-child {
+    border-bottom: none;
+}
+
+.ud-log-level {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: .35rem;
+    flex-shrink: 0;
+}
+
+.ud-log-level--info    { background: #60a5fa; }
+.ud-log-level--success { background: #22c55e; }
+.ud-log-level--warning { background: #f97316; }
+.ud-log-level--error   { background: #ef4444; }
+
+.ud-log-title {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-main);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.ud-log-time {
+    font-size: .72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/*---BADGES---*/
+
+.ud-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .55rem;
+    border-radius: var(--radius-sm);
+    font-size: .72rem;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.ud-badge--admin {
+    background: var(--brand-dim);
+    color: var(--brand);
+    border-color: var(--brand-glow);
+}
+
+.ud-badge--role {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+.ud-badge--verified {
+    background: rgba(34, 197, 94, .1);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, .25);
+}
+
+.ud-badge--unverified {
+    background: rgba(249, 115, 22, .1);
+    color: #f97316;
+    border-color: rgba(249, 115, 22, .25);
+}

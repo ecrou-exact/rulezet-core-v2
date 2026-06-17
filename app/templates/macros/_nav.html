@@ -1,0 +1,192 @@
+{#
+  _nav.html — Navigation component (all 4 modes).
+  Driven entirely by nav_items (injected by context processor from nav_registry.py).
+  To add a nav item: edit nav_registry.py only. Never modify this file for new features.
+#}
+{% from 'macros/_role_badge.html' import role_badge %}
+
+{# ── Active path helper ──────────────────────────────────────────────────── #}
+{# item is active if path matches exactly (for '/') or starts with href #}
+{% macro is_active(item) %}
+  {%- if item.href == '/' -%}{{ 'active' if request.path == '/' else '' }}
+  {%- else -%}{{ 'active' if request.path.startswith(item.href) else '' }}
+  {%- endif -%}
+{% endmacro %}
+
+{% if nav_mode == 'topbar' %}
+{# ═══════════════════════════════════════ #}
+{# TOPBAR MODE                             #}
+{# ═══════════════════════════════════════ #}
+<header class="app-topbar app-topbar--nav">
+    <div class="topbar-left">
+        <div class="topbar-brand">
+            <a href="/" class="topbar-brand-link">
+                <img src="{{ url_for('static', filename='image/logo.png') }}" alt="Logo" style="height:50px;">
+            </a>
+        </div>
+        {% if current_user.is_authenticated %}
+        <nav class="topbar-links">
+            {% for item in nav_items %}
+            <a href="{{ item.href }}"
+               class="topbar-nav-link {{ is_active(item) }}"
+               {% if item.external %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                <i class="fas {{ item.icon }}"></i>{{ item.label }}
+            </a>
+            {% endfor %}
+        </nav>
+        {% endif %}
+    </div>
+    <div class="topbar-right">
+        {% if current_user.is_authenticated %}
+        <button class="gs-btn" onclick="gsOpen()" title="Search (Ctrl+K)">
+            <i class="fas fa-magnifying-glass"></i>
+        </button>
+        {{ role_badge(current_user.role) }}
+        <a href="{{ url_for('account.index') }}" class="topbar-user-avatar" title="{{ current_user.full_name() }}">
+            {% if current_user.avatar_filename %}
+            <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_filename) }}" alt="">
+            {% else %}{{ current_user.initials() }}{% endif %}
+        </a>
+        <a href="{{ url_for('config.settings') }}" class="btn-icon" title="Settings">
+            <i class="fas fa-gear" style="font-size:.78rem;"></i>
+        </a>
+        <a href="{{ url_for('account.logout') }}" class="btn-icon" title="Sign out">
+            <i class="fas fa-right-from-bracket" style="font-size:.78rem;"></i>
+        </a>
+        {% endif %}
+    </div>
+</header>
+
+{% elif nav_mode == 'hidden' %}
+{# ═══════════════════════════════════════ #}
+{# HIDDEN MODE                             #}
+{# ═══════════════════════════════════════ #}
+<aside class="app-sidebar" id="appSidebar">
+    <div class="topbar-brand">
+        <a href="/" class="topbar-brand-link">
+            <img src="{{ url_for('static', filename='image/logo.png') }}" alt="Logo" style="height:50px;">
+            <span class="topbar-app-name">Flask Launchpad</span>
+        </a>
+    </div>
+    <nav class="sidebar-nav">
+        {% if current_user.is_authenticated %}
+        {% set ns = namespace(current_group=None) %}
+        {% for item in nav_items %}
+            {% if item.group != ns.current_group %}
+                {% set ns.current_group = item.group %}
+                <p class="nav-section-label">{{ item.group }}</p>
+            {% endif %}
+            <a href="{{ item.href }}"
+               class="nav-link-item {{ is_active(item) }}"
+               {% if item.external %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                <i class="fas {{ item.icon }} nav-icon"></i>
+                <span class="nav-label">{{ item.label }}</span>
+            </a>
+        {% endfor %}
+        {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('account.index') }}" class="sidebar-user-pill">
+            <div class="sidebar-user-avatar">
+                {% if current_user.avatar_filename %}
+                <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_filename) }}" alt="">
+                {% else %}{{ current_user.initials() }}{% endif %}
+            </div>
+            <span class="sidebar-user-name">{{ current_user.full_name() }}</span>
+        </a>
+        <a href="{{ url_for('account.logout') }}" class="nav-link-item" style="font-size:.82rem;">
+            <i class="fas fa-right-from-bracket nav-icon"></i><span class="nav-label">Sign out</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('account.login') }}" class="nav-link-item" style="font-size:.82rem;">
+            <i class="fas fa-right-to-bracket nav-icon"></i><span class="nav-label">Sign in</span>
+        </a>
+        {% endif %}
+        <div class="sidebar-footer-actions">
+            <span class="sidebar-version-label me-auto">{{ app_version }}</span>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('config.settings') }}" class="btn-sidebar-icon" title="Settings">
+                <i class="fas fa-gear"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</aside>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+{% else %}
+{# ═══════════════════════════════════════ #}
+{# SIDEBAR / RAIL MODE (default)           #}
+{# ═══════════════════════════════════════ #}
+<aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-header">
+        <div>
+            <img src="{{ url_for('static', filename='image/logo.png') }}" alt="Logo" style="height:30px;">
+        </div>
+        <span class="sidebar-app-name">Flask Launchpad</span>
+        <button class="btn-sidebar-toggle d-none d-lg-inline-flex"
+                onclick="toggleSidebarCollapsed()"
+                title="Collapse sidebar"
+                id="sidebarToggleBtn">
+            <i class="fas fa-chevron-left" id="sidebar-chevron"></i>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+        {% if current_user.is_authenticated %}
+        {% set ns = namespace(current_group=None) %}
+        {% for item in nav_items %}
+            {% if item.group != ns.current_group %}
+                {% set ns.current_group = item.group %}
+                <p class="nav-section-label">{{ item.group }}</p>
+            {% endif %}
+            <a href="{{ item.href }}"
+               class="nav-link-item {{ is_active(item) }}"
+               data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="{{ item.label }}"
+               {% if item.external %}target="_blank" rel="noopener noreferrer"{% endif %}>
+                <i class="fas {{ item.icon }} nav-icon"></i>
+                <span class="nav-label">{{ item.label }}</span>
+                {% if item.external %}
+                <i class="fas fa-arrow-up-right-from-square nav-icon ms-auto" style="font-size:.55rem;opacity:.4;"></i>
+                {% endif %}
+            </a>
+        {% endfor %}
+        {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('account.index') }}" class="sidebar-user-pill"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="{{ current_user.full_name() }}">
+            <div class="sidebar-user-avatar">
+                {% if current_user.avatar_filename %}
+                <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_filename) }}" alt="">
+                {% else %}{{ current_user.initials() }}{% endif %}
+            </div>
+            <span class="sidebar-user-name">{{ current_user.full_name() }}</span>
+        </a>
+        <a href="{{ url_for('account.logout') }}" class="nav-link-item" style="font-size:.82rem;"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Sign out">
+            <i class="fas fa-right-from-bracket nav-icon"></i>
+            <span class="nav-label">Sign out</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('account.login') }}" class="nav-link-item" style="font-size:.82rem;">
+            <i class="fas fa-right-to-bracket nav-icon"></i>
+            <span class="nav-label">Sign in</span>
+        </a>
+        {% endif %}
+        <div class="sidebar-footer-actions">
+            <span class="sidebar-version-label me-auto">{{ app_version }}</span>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('config.settings') }}" class="btn-sidebar-icon"
+               data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Settings">
+                <i class="fas fa-gear"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</aside>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+{% endif %}

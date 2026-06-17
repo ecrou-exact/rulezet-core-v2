@@ -1,0 +1,1246 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lab/lab.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/diff-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/code-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/smart-editor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/pivotick.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/graph-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/chart-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/stat-card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/timeline.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/ansi-terminal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/key-value.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/request-builder.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/regex-tester.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/file-tree.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!ready"></loading-bar>
+
+    <div v-if="ready">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">Component Lab</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Component Lab</h1>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="lab-layout">
+
+                <!-- ── Sidebar nav ───────────────────────────────── -->
+                <aside class="lab-nav">
+                    <p class="lab-nav-title">Components</p>
+                    <a
+                        v-for="c in components"
+                        :key="c.id"
+                        :href="'#' + c.id"
+                        class="lab-nav-link"
+                        :class="{ 'is-active': active_section === c.id }"
+                        @click.prevent="scroll_to(c.id)">
+                        <i :class="'fas ' + c.icon"></i>
+                        [[ c.label ]]
+                    </a>
+                </aside>
+
+                <!-- ── Component sections ────────────────────────── -->
+                <div class="lab-content">
+
+                    <!-- DIFF VIEWER -->
+                    <section class="lab-card" id="diff-viewer">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-code-compare"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Diff Viewer</h2>
+                                    <p class="lab-card-desc">
+                                        Side-by-side or unified diff — intraline highlights,
+                                        synchronized scroll, hunk navigation, custom colors.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">diff-viewer.js</code>
+                        </div>
+                        <div class="lab-card-body">
+                            <diff-viewer
+                                left-label="v1 · config.json"
+                                right-label="v2 · config.json"
+                                :initial-left="diff_left"
+                                :initial-right="diff_right"
+                                mode="input">
+                            </diff-viewer>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import DiffViewer from '/static/js/components/diff-viewer.js'
+
+&lt;diff-viewer
+    left-label="Original"
+    right-label="Modified"
+    :initial-left="old_text"
+    :initial-right="new_text"&gt;
+    mode: 'read' | 'input' (default: 'read') — if 'input', both sides are editable and emit update events
+&lt;/diff-viewer&gt;</pre>
+                        </details>
+                    </section>
+
+                    <!-- CODE VIEWER -->
+                    <section class="lab-card" id="code-viewer">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-file-code"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Code Viewer</h2>
+                                    <p class="lab-card-desc">
+                                        Syntax highlighting via highlight.js — JSON fold tree,
+                                        integrated search, line numbers, copy.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">code-viewer.js</code>
+                        </div>
+
+                        <div class="lab-demo-tabs">
+                            <button
+                                v-for="d in code_demos"
+                                :key="d.id"
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': active_demo === d.id }"
+                                @click="active_demo = d.id">
+                                [[ d.label ]]
+                            </button>
+                        </div>
+
+                        <div class="lab-card-body">
+                            <code-viewer
+                                :code="current_demo.code"
+                                :language="current_demo.lang"
+                                :title="current_demo.title"
+                                max-height="460px">
+                            </code-viewer>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import CodeViewer from '/static/js/components/code-viewer.js'
+
+&lt;!-- JSON with fold tree (auto-detected) --&gt;
+&lt;code-viewer :code="json_str" title="config.json"&gt;&lt;/code-viewer&gt;
+
+&lt;!-- Explicit language --&gt;
+&lt;code-viewer :code="source" language="python" title="app.py"&gt;&lt;/code-viewer&gt;</pre>
+                        </details>
+                    </section>
+
+                    <!-- SMART EDITOR -->
+                    <section class="lab-card" id="smart-editor">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-pen-to-square"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Smart Editor</h2>
+                                    <p class="lab-card-desc">
+                                        Rich form field — plain text, Markdown, or code with syntax highlighting.
+                                        Mode and language are fixed by props. Auto-close brackets, smart indent,
+                                        v-model and form-name compatible.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">smart-editor.js</code>
+                        </div>
+
+                        <div class="lab-demo-tabs">
+                            <button
+                                v-for="d in editor_demos"
+                                :key="d.id"
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': active_editor_demo === d.id }"
+                                @click="active_editor_demo = d.id">
+                                [[ d.label ]]
+                            </button>
+                        </div>
+
+                        <div class="lab-card-body">
+                            <template v-for="d in editor_demos" :key="d.id">
+                                <smart-editor
+                                    v-if="active_editor_demo === d.id"
+                                    v-model="editor_values[d.id]"
+                                    :mode="d.mode"
+                                    :language="d.language"
+                                    :placeholder="d.placeholder"
+                                    min-height="260px"
+                                    max-height="520px">
+                                </smart-editor>
+                            </template>
+                            <div class="lab-editor-output">
+                                <span class="lab-editor-output-label">Current value</span>
+                                <code class="lab-editor-output-val">[[ editor_values[active_editor_demo].slice(0, 200) || '(empty)' ]]</code>
+                            </div>
+                        </div>
+
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import SmartEditor from '/static/js/components/smart-editor.js'
+
+&lt;!-- v-model, markdown mode --&gt;
+&lt;smart-editor v-model="body" mode="markdown"&gt;&lt;/smart-editor&gt;
+
+&lt;!-- Plain form field (no Vue) — submits with the form --&gt;
+&lt;smart-editor name="content" mode="code" language="python"&gt;&lt;/smart-editor&gt;
+
+&lt;!-- Props --&gt;
+mode        'text' | 'markdown' | 'code'     (default: 'text')
+language    'javascript' | 'python' | ...    (code mode)
+name        HTML name → hidden input for form submit
+min-height  CSS string   (default: '220px')
+max-height  CSS string   (default: '600px')</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Graph Viewer ── -->
+                    <section class="lab-card" id="graph-viewer">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-diagram-project"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Graph Viewer</h2>
+                                    <p class="lab-card-desc">
+                                        Network graph powered by <a href="https://github.com/Pivotick/Pivotick" target="_blank">Pivotick</a>.
+                                        JSON config maps node/edge types to shapes and colors.
+                                        Two modes: <code>simple</code> (viewer) and <code>dev</code> (full UI + filters).
+                                        Use the <i class="fas fa-code"></i> button to edit the config/data live.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">graph-viewer.js</code>
+                        </div>
+
+                        <!-- Mode tabs -->
+                        <div class="lab-tabs">
+                            <button
+                                v-for="d in graph_demos" :key="d.id"
+                                class="lab-tab"
+                                :class="{ 'is-active': active_graph_demo === d.id }"
+                                @click="active_graph_demo = d.id"
+                            >[[ d.label ]]</button>
+                        </div>
+
+                        <graph-viewer
+                            :config="graph_config"
+                            :data="graph_data"
+                            :mode="active_graph_demo"
+                            :editable="true"
+                            height="520px"
+                        ></graph-viewer>
+
+                        <details class="lab-usage">
+                            <summary>Usage</summary>
+                            <pre class="lab-usage-code">import GraphViewer from '/static/js/components/graph-viewer.js'
+
+&lt;!-- Simple mode: pan/zoom only --&gt;
+&lt;graph-viewer :config="cfg" :data="dat" mode="simple" height="400px"&gt;&lt;/graph-viewer&gt;
+
+&lt;!-- Dev mode: full UI + node type filters + search --&gt;
+&lt;graph-viewer :config="cfg" :data="dat" mode="dev" height="500px"&gt;&lt;/graph-viewer&gt;
+
+&lt;!-- Editable: live JSON editor panel for config + data --&gt;
+&lt;graph-viewer :config="cfg" :data="dat" :editable="true" height="600px"&gt;&lt;/graph-viewer&gt;
+
+/* Config JSON schema */
+{
+  "graph": { "directed": true },
+  "nodes": {
+    "id_field": "id",
+    "label_field": "label",
+    "type_field": "type",
+    "default": { "color": "#888", "shape": "circle", "size": 16 },
+    "types": {
+      "person": { "color": "#4e79a7", "shape": "circle", "size": 22, "label_field": "name" },
+      "company": { "color": "#f28e2b", "shape": "hexagon", "size": 28 }
+    }
+  },
+  "edges": {
+    "from_field": "from",
+    "to_field": "to",
+    "label_field": "label",
+    "type_field": "type",
+    "default": { "color": "#aaa" },
+    "types": {
+      "works_at":  { "color": "#4e79a7", "dashed": false },
+      "founded":   { "color": "#f28e2b", "dashed": true  }
+    }
+  }
+}
+
+/* Data JSON schema */
+{
+  "nodes": [
+    { "id": "1", "type": "person",  "name": "Alice" },
+    { "id": "2", "type": "company", "label": "Acme Corp" }
+  ],
+  "edges": [
+    { "from": "1", "to": "2", "type": "works_at", "label": "Employee" }
+  ]
+}</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Chart Viewer ── -->
+                    <section class="lab-card" id="chart-viewer">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-chart-line"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Chart Viewer</h2>
+                                    <p class="lab-card-desc">
+                                        Universal ECharts component — 12 chart types from one JSON format.
+                                        Switch views with the tab bar, click a data point to see its detail,
+                                        export as PNG, or go fullscreen.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">chart-viewer.js</code>
+                        </div>
+
+                        <!-- Dataset picker -->
+                        <div class="lab-demo-tabs">
+                            <button
+                                v-for="d in chart_presets"
+                                :key="d.id"
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': active_chart_preset === d.id }"
+                                @click="active_chart_preset = d.id">
+                                <i :class="'fas ' + d.icon" style="margin-right:4px;font-size:.72rem;"></i>
+                                [[ d.label ]]
+                            </button>
+                        </div>
+
+                        <div class="lab-card-body" style="padding:0;">
+                            <chart-viewer
+                                :data="current_chart_data"
+                                :views="ALL_VIEWS"
+                                :detail="true"
+                                height="440px">
+                            </chart-viewer>
+                        </div>
+
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import ChartViewer from '/static/js/components/chart-viewer.js'
+
+&lt;!-- All 12 chart types, click-to-detail enabled --&gt;
+&lt;chart-viewer
+    :data="my_data"
+    :views="['line','area','bar','bar-h','pie','donut','scatter',
+             'radar','funnel','gauge','treemap','heatmap','table']"
+    :detail="true"
+    height="440px"&gt;
+&lt;/chart-viewer&gt;
+
+&lt;!-- Single view — no tab bar --&gt;
+&lt;chart-viewer :data="my_data" views="pie" height="320px"&gt;&lt;/chart-viewer&gt;
+
+/* Universal JSON format (all chart types read the same structure) */
+{
+    "title":      "My Chart",
+    "subtitle":   "Optional subtitle",
+    "categories": ["Jan", "Feb", "Mar"],   // X-axis labels (also pie slice names)
+    "series": [
+        { "name": "Revenue", "values": [120, 200, 150] },
+        { "name": "Cost",    "values": [80,  140, 90]  }
+    ],
+    "meta": {
+        "unit":    "€",        // appended to values in tooltips + detail panel
+        "x_label": "Month",
+        "y_label": "Amount"
+    }
+}
+
+/* Chart type notes */
+// pie / donut / treemap / funnel → first series only; categories = slice labels
+// gauge   → first value of first series (0-100 ideal)
+// scatter → values can be [[x,y], ...] pairs or flat array (auto-index X)
+// heatmap → series[i].values = row of values; categories = X-axis labels
+// table   → always available when :detail="true"</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Stat Card ── -->
+                    <section class="lab-card" id="stat-card">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-square-poll-vertical"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Stat Card</h2>
+                                    <p class="lab-card-desc">
+                                        KPI metric card with icon, trend indicator, and color variants.
+                                        7 colors: <code>brand blue green red orange purple gray</code>.
+                                        Trend is positive/negative/zero; use <code>trend-inverse</code> for error-type metrics.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">stat-card.js</code>
+                        </div>
+                        <div class="lab-card-body">
+                            <div class="lab-stat-grid">
+                                <stat-card label="Total Users"   :value="1240"  icon="fa-users"         color="blue"   :trend="12.5"  sub="vs last month"></stat-card>
+                                <stat-card label="Active Jobs"   :value="8"     icon="fa-gears"         color="brand"  :trend="3"     sub="right now"></stat-card>
+                                <stat-card label="Error Rate"    :value="2.4"   icon="fa-circle-xmark"  color="red"    unit="%" :trend="-0.8" trend-inverse sub="last 24h"></stat-card>
+                                <stat-card label="Storage Used"  :value="14.2"  icon="fa-database"      color="orange" unit=" GB" sub="of 100 GB quota"></stat-card>
+                                <stat-card label="Log Events"    :value="98210" icon="fa-scroll"        color="purple" :trend="4.1"></stat-card>
+                                <stat-card label="API Calls"     :value="null"  icon="fa-code"          color="gray"   :loading="true"></stat-card>
+                            </div>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import StatCard from '/static/js/components/stat-card.js'
+// also link css/components/stat-card.css
+
+&lt;!-- Basic --&gt;
+&lt;stat-card label="Total Users" :value="1240" icon="fa-users" color="blue"&gt;&lt;/stat-card&gt;
+
+&lt;!-- With trend (positive = green, negative = red) --&gt;
+&lt;stat-card label="Revenue" :value="12400" unit="€" icon="fa-euro-sign" color="green" :trend="8.3" trend-label="+8% vs last month"&gt;&lt;/stat-card&gt;
+
+&lt;!-- Inverted trend: down = good (e.g. error count) --&gt;
+&lt;stat-card label="Error Rate" :value="2.4" unit="%" icon="fa-circle-xmark" color="red" :trend="-0.8" trend-inverse&gt;&lt;/stat-card&gt;
+
+&lt;!-- Loading skeleton --&gt;
+&lt;stat-card label="API Calls" icon="fa-code" color="gray" :loading="true"&gt;&lt;/stat-card&gt;
+
+Props:
+  value        String|Number|null  Main metric
+  label        String              Card title
+  icon         String              FA class (without 'fas ')
+  color        String              brand | blue | green | red | orange | purple | gray
+  unit         String              Appended to value: '%', 'ms', ' GB', etc.
+  trend        Number|null         % change — positive/negative/zero
+  trend-inverse Boolean            Flip trend color logic (bad if up)
+  trend-label  String              Override auto-generated trend text
+  sub          String              Small line below the label
+  loading      Boolean             Show skeleton state</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Timeline ── -->
+                    <section class="lab-card" id="timeline">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-timeline"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Timeline</h2>
+                                    <p class="lab-card-desc">
+                                        Vertical event timeline with day grouping, level dots, actor avatars,
+                                        and collapsible descriptions. Emits a <code>select</code> event on item click.
+                                        Designed for log feeds, activity streams, audit trails.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">timeline.js</code>
+                        </div>
+                        <div class="lab-card-body">
+                            <timeline :items="timeline_items" :loading="false" @select="on_tl_select"></timeline>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import Timeline from '/static/js/components/timeline.js'
+// also link css/components/timeline.css
+
+&lt;timeline :items="logs" :loading="fetching" @select="openDetail"&gt;&lt;/timeline&gt;
+
+Item shape:
+{
+  uuid:        String   // unique key
+  title:       String   // main text
+  level:       String   // 'info' | 'success' | 'warning' | 'error'
+  category:    String   // 'user' | 'system' | 'security' | 'admin' | 'api' | 'database' | 'connectors'
+  action:      String   // e.g. 'create', 'delete', 'login' (shown as mono tag)
+  created_at:  String   // ISO datetime
+  actor_name:  String   // null → shows "System"
+  description: String   // optional long text (collapsible after max-desc chars)
+}
+
+Props:
+  items        Array    Required
+  loading      Boolean  Show skeleton rows (default: false)
+  group-by-day Boolean  Group under Today / Yesterday / date headers (default: true)
+  max-desc     Number   Chars before "more" button (default: 180)
+
+Events:
+  select(item) — emitted when a row is clicked</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── ANSI Terminal ── -->
+                    <section class="lab-card" id="ansi-terminal">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-terminal"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">ANSI Terminal</h2>
+                                    <p class="lab-card-desc">
+                                        Terminal output panel with ANSI escape code rendering.
+                                        Two modes: <strong>view</strong> (read-only log display) and
+                                        <strong>edit</strong> (interactive input line, emits <code>@submit</code>).
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">ansi-terminal.js</code>
+                        </div>
+
+                        <div class="lab-demo-tabs">
+                            <button
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': at_mode === 'view' }"
+                                @click="at_mode = 'view'">
+                                <i class="fas fa-eye me-1"></i> view
+                            </button>
+                            <button
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': at_mode === 'edit' }"
+                                @click="at_mode = 'edit'">
+                                <i class="fas fa-keyboard me-1"></i> edit
+                            </button>
+                        </div>
+
+                        <div class="lab-card-body" style="padding:0;">
+                            <ansi-terminal
+                                :entries="at_log"
+                                :mode="at_mode"
+                                :live="false"
+                                title="tags.import_taxonomy — run #42"
+                                placeholder="Type a command…"
+                                @clear="at_log = term_entries.slice()"
+                                @submit="on_at_submit">
+                            </ansi-terminal>
+                        </div>
+
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import AnsiTerminal from '/static/js/components/ansi-terminal.js'
+
+&lt;!-- view mode (default) — read-only log panel --&gt;
+&lt;ansi-terminal
+    :entries="job.logs"
+    :live="job.status === 'running'"
+    title="Execution logs"
+    @clear="job.logs = []"&gt;
+&lt;/ansi-terminal&gt;
+
+&lt;!-- edit mode — adds interactive input line --&gt;
+&lt;ansi-terminal
+    :entries="terminal_log"
+    mode="edit"
+    placeholder="Enter command…"
+    @submit="on_submit"
+    @clear="terminal_log = []"&gt;
+&lt;/ansi-terminal&gt;
+
+// @submit receives the typed text; push feedback into entries
+function on_submit(text) {
+    terminal_log.push({ ts: new Date().toISOString(), msg: '> ' + text, level: 'info' })
+    // run command, push result lines…
+}
+
+Props:
+  entries      [{ts?, msg, level?}]  Structured log objects
+  lines        String[]              Raw ANSI text lines
+  mode         String                'view' (default) | 'edit'
+  placeholder  String                Input placeholder (edit mode)
+  live         Boolean               Auto-scroll on new lines (default: true)
+  title        String                Header label
+  max-lines    Number                Truncate at N lines (default: 5000)
+
+Events: clear, submit(text)</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Key-Value ── -->
+                    <section class="lab-card" id="key-value">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-list-check"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Key-Value</h2>
+                                    <p class="lab-card-desc">
+                                        Recursive JSON/object inspector with type coloring and expand/collapse.
+                                        Works on any value — objects, arrays, primitives, null.
+                                        Used on the job detail page and on the logs timeline detail panel.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">key-value.js</code>
+                        </div>
+                        <div class="lab-card-body">
+                            <key-value :data="kv_data" label="Job result"></key-value>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import KeyValue from '/static/js/components/key-value.js'
+
+&lt;key-value :data="job.result" label="Result"&gt;&lt;/key-value&gt;
+
+Root instance (depth=0) includes a search bar and Collapse/Expand buttons.
+All nested instances share the search query and force-state via provide/inject.
+
+Props:
+  data       any     Any JSON-serializable value
+  label      String  Root label
+  collapsed  Boolean Start collapsed (default: false for root)
+  max-depth  Number  Auto-collapse beyond depth (default: 3)
+
+Colors: string=green, number=orange, boolean=purple, null=muted</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Request Builder ── -->
+                    <section class="lab-card" id="request-builder">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-paper-plane"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Request Builder</h2>
+                                    <p class="lab-card-desc">
+                                        In-app HTTP client (mini Postman). Method selector, URL bar, editable headers,
+                                        JSON body, response viewer. CSRF token included by default.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">request-builder.js</code>
+                        </div>
+                        <div class="lab-card-body" style="padding:0;">
+                            <request-builder default-url="/api/log/?per_page=3" default-method="GET"></request-builder>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import RequestBuilder from '/static/js/components/request-builder.js'
+
+&lt;request-builder
+    default-url="/api/tags/"
+    default-method="GET"&gt;
+&lt;/request-builder&gt;
+
+Props:
+  default-url    String  Pre-fill URL
+  default-method String  Pre-fill method
+  default-body   String  Pre-fill body
+
+Events:
+  response({ status, ok, time_ms, body, content_type })</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── Regex Tester ── -->
+                    <section class="lab-card" id="regex-tester">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-at"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">Regex Tester</h2>
+                                    <p class="lab-card-desc">
+                                        Live regex tester with real-time match highlighting,
+                                        flag toggles (g, i, m, s), match list with positions and captured groups.
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">regex-tester.js</code>
+                        </div>
+                        <div class="lab-card-body" style="padding:0;">
+                            <regex-tester
+                                default-pattern="(TLP|tlp):(RED|AMBER|GREEN|CLEAR)"
+                                default-flags="gi"
+                                default-text="Tags: TLP:RED, TLP:AMBER, tlp:green, TLP:CLEAR
+APT: APT28, APT29 — tlp:white">
+                            </regex-tester>
+                        </div>
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import RegexTester from '/static/js/components/regex-tester.js'
+
+&lt;regex-tester
+    default-pattern="(error|fail)"
+    default-flags="gi"
+    default-text="Your test string"&gt;
+&lt;/regex-tester&gt;
+
+Props:
+  default-pattern String
+  default-flags   String  (default: 'g')
+  default-text    String
+
+Flags: g=global, i=insensitive, m=multiline, s=dotall
+Match list shows: index, text, position, captured groups</pre>
+                        </details>
+                    </section>
+
+                    <!-- ── File Tree ── -->
+                    <section class="lab-card" id="file-tree">
+                        <div class="lab-card-header">
+                            <div class="lab-card-meta">
+                                <span class="lab-card-icon"><i class="fas fa-folder-tree"></i></span>
+                                <div>
+                                    <h2 class="lab-card-title">File Tree</h2>
+                                    <p class="lab-card-desc">
+                                        Collapsible file/directory tree with built-in search, collapse/expand all.
+                                        Two modes: <strong>read</strong> (navigate + select) and
+                                        <strong>read-plus</strong> (inline file preview + download).
+                                    </p>
+                                </div>
+                            </div>
+                            <code class="lab-file-badge">file-tree.js</code>
+                        </div>
+
+                        <div class="lab-demo-tabs">
+                            <button
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': ft_mode === 'read' }"
+                                @click="ft_mode = 'read'">
+                                <i class="fas fa-eye me-1"></i> read
+                            </button>
+                            <button
+                                class="lab-demo-tab"
+                                :class="{ 'is-active': ft_mode === 'read-plus' }"
+                                @click="ft_mode = 'read-plus'">
+                                <i class="fas fa-file-lines me-1"></i> read-plus
+                            </button>
+                        </div>
+
+                        <div class="lab-card-body">
+                            <file-tree
+                                :nodes="tree_nodes"
+                                :mode="ft_mode"
+                                :fetch-content="ft_mode === 'read-plus' ? demoFetchContent : null">
+                            </file-tree>
+                        </div>
+
+                        <details class="lab-usage">
+                            <summary><i class="fas fa-code"></i> Usage</summary>
+                            <pre class="lab-usage-code">import FileTree from '/static/js/components/file-tree.js'
+
+// Read mode — navigate, built-in search + collapse/expand
+&lt;file-tree :nodes="tree_nodes" @select="onNodeClick"&gt;&lt;/file-tree&gt;
+
+// Read-plus mode — same + inline file preview and download button
+&lt;file-tree
+    :nodes="tree_nodes"
+    mode="read-plus"
+    :fetch-content="loadContent"&gt;
+&lt;/file-tree&gt;
+
+// fetch-content: async (node) => string | { content, error }
+async function loadContent(node) {
+    const res = await fetch('/api/.../file?path=' + node.path)
+    const d   = await res.json()
+    return { content: d.content }
+}
+
+Node shape: { name, type: 'file'|'dir', path, ext, children: [] }
+
+Props:
+  nodes         Array     Root nodes
+  loading       Boolean   Show skeleton
+  mode          String    'read' (default) | 'read-plus'
+  fetch-content Function  async (node) => string | { content, error }
+
+Events: select(node)</pre>
+                        </details>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import LoadingBar  from '/static/js/components/loading-bar.js'
+    import DiffViewer   from '/static/js/components/diff-viewer.js'
+    import CodeViewer   from '/static/js/components/code-viewer.js'
+    import SmartEditor  from '/static/js/components/smart-editor.js'
+    import GraphViewer  from '/static/js/components/graph-viewer.js'
+    import ChartViewer  from '/static/js/components/chart-viewer.js'
+    import StatCard       from '/static/js/components/stat-card.js'
+    import Timeline       from '/static/js/components/timeline.js'
+    import AnsiTerminal   from '/static/js/components/ansi-terminal.js'
+    import KeyValue       from '/static/js/components/key-value.js'
+    import RequestBuilder from '/static/js/components/request-builder.js'
+    import RegexTester    from '/static/js/components/regex-tester.js'
+    import FileTree       from '/static/js/components/file-tree.js'
+
+
+    const DIFF_LEFT = `{
+  "app": "flask-launchpad",
+  "version": "1.4.0",
+  "debug": false,
+  "database": {
+    "engine": "sqlite",
+    "path": "instance/ptitcrolle.sqlite",
+    "pool_size": 5
+  },
+  "features": {
+    "registration": true,
+    "email_verification": false,
+    "comments": true,
+    "jobs": true
+  },
+  "smtp": { "host": "smtp.example.com", "port": 587, "use_tls": true },
+  "log_level": "INFO"
+}`
+
+    const DIFF_RIGHT = `{
+  "app": "flask-launchpad",
+  "version": "1.5.0",
+  "debug": true,
+  "database": {
+    "engine": "postgres",
+    "url": "postgresql://user:pass@localhost/launchpad",
+    "pool_size": 10,
+    "pool_timeout": 30
+  },
+  "features": {
+    "registration": true,
+    "email_verification": true,
+    "comments": true,
+    "jobs": true,
+    "code_viewer": true
+  },
+  "smtp": { "host": "smtp.mailgun.org", "port": 587, "use_tls": true },
+  "log_level": "WARNING",
+  "sentry_dsn": "https://abc@sentry.io/123"
+}`
+
+    const PYTHON_CODE = [
+        'from datetime import datetime',
+        'from app import db',
+        'from app.core.utils.logger import log_action',
+        'from app.core.utils.job_runner import enqueue_job',
+        '',
+        '',
+        'def create_item_core(data: dict, user_id: int):',
+        '    """Create a new Item and queue an async processing job."""',
+        '    item = Item(',
+        "        title=data.get('title', '').strip(),",
+        "        description=data.get('description', ''),",
+        '        created_by=user_id,',
+        '        is_active=True,',
+        '        created_at=datetime.utcnow(),',
+        '    )',
+        '    db.session.add(item)',
+        '    db.session.commit()',
+        '',
+        '    job = enqueue_job(',
+        "        'items.process',",
+        "        title=f'Process item: {item.title}',",
+        "        meta={'item_id': item.id},",
+        '        user_id=user_id,',
+        '    )',
+        '',
+        '    log_action(',
+        "        title=f'Item created: {item.title}',",
+        "        action='create', category='items',",
+        "        level='success', object_type='item',",
+        '        object_id=item.id, is_public=True,',
+        '    )',
+        "    return item, job, 'Item created successfully'",
+    ].join('\n')
+
+    const JS_CODE = [
+        '// constants.js — Global helpers for Vue pages',
+        '',
+        'export const TOAST = {',
+        "    SUCCESS: 'success',",
+        "    ERROR:   'error',",
+        "    WARNING: 'warning',",
+        "    INFO:    'info',",
+        '}',
+        '',
+        'export const CSRF_TOKEN = document',
+        '    .querySelector(\'meta[name="csrf-token"]\')',
+        "    ?.getAttribute('content') ?? ''",
+        '',
+        '/**',
+        ' * Thin fetch wrapper — always sends CSRF + JSON headers.',
+        ' */',
+        "export async function apiFetch(url, method = 'GET', body = null) {",
+        '    const opts = {',
+        '        method,',
+        '        headers: {',
+        "            'Content-Type': 'application/json',",
+        "            'X-CSRFToken': CSRF_TOKEN,",
+        '        },',
+        "        credentials: 'same-origin',",
+        '    }',
+        '    if (body !== null) opts.body = JSON.stringify(body)',
+        '    return fetch(url, opts)',
+        '}',
+    ].join('\n')
+
+    const BASH_CODE = [
+        '#!/bin/bash',
+        '# launch.sh — Flask Launchpad management',
+        '',
+        "RED='\\033[0;31m'; GREEN='\\033[0;32m'",
+        "CYAN='\\033[0;36m'; NC='\\033[0m'",
+        '',
+        'info() { echo -e "${CYAN}[INFO]${NC}  $*"; }',
+        'ok()   { echo -e "${GREEN}[ OK ]${NC}  $*"; }',
+        '',
+        'require_venv() {',
+        '    [ -z "$VIRTUAL_ENV" ] || return 0',
+        '    [ -d "venv" ] && source venv/bin/activate && return 0',
+        '    echo "No venv found. Run --setup first." && exit 1',
+        '}',
+        '',
+        'case "$1" in',
+        '    --start)   require_venv; python3 app.py ;;',
+        '    --test)    shift; require_venv; pytest "$@" ;;',
+        '    --migrate) shift; require_venv; flask db migrate -m "$1" ;;',
+        '    --upgrade) require_venv; flask db upgrade ;;',
+        '    *)         echo "Unknown: $1"; exit 1 ;;',
+        'esac',
+    ].join('\n')
+
+    const CODE_DEMOS = [
+        { id: 'json',   label: 'JSON',       lang: 'json',       title: 'config.json', code: DIFF_RIGHT   },
+        { id: 'python', label: 'Python',     lang: 'python',     title: 'core.py',     code: PYTHON_CODE  },
+        { id: 'js',     label: 'JavaScript', lang: 'javascript', title: 'constants.js',code: JS_CODE      },
+        { id: 'bash',   label: 'Bash',       lang: 'bash',       title: 'launch.sh',   code: BASH_CODE    },
+    ]
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, DiffViewer, CodeViewer, SmartEditor, GraphViewer, ChartViewer, StatCard, Timeline, AnsiTerminal, KeyValue, RequestBuilder, RegexTester, FileTree },
+
+        setup() {
+            const ready          = ref(false)
+            const diff_left      = ref(DIFF_LEFT)
+            const diff_right     = ref(DIFF_RIGHT)
+            const active_demo    = ref('json')
+            const active_section = ref('diff-viewer')
+
+            const components = [
+                { id: 'diff-viewer',   label: 'Diff Viewer',    icon: 'fa-code-compare'    },
+                { id: 'code-viewer',   label: 'Code Viewer',    icon: 'fa-file-code'       },
+                { id: 'smart-editor',  label: 'Smart Editor',   icon: 'fa-pen-to-square'   },
+                { id: 'graph-viewer',  label: 'Graph Viewer',   icon: 'fa-diagram-project' },
+                { id: 'chart-viewer',  label: 'Chart Viewer',   icon: 'fa-chart-line'      },
+                { id: 'stat-card',       label: 'Stat Card',        icon: 'fa-square-poll-vertical' },
+                { id: 'timeline',        label: 'Timeline',          icon: 'fa-timeline'             },
+                { id: 'ansi-terminal',   label: 'ANSI Terminal',     icon: 'fa-terminal'             },
+                { id: 'key-value',       label: 'Key-Value',         icon: 'fa-list-check'           },
+                { id: 'request-builder', label: 'Request Builder',   icon: 'fa-paper-plane'          },
+                { id: 'regex-tester',    label: 'Regex Tester',      icon: 'fa-at'                   },
+                { id: 'file-tree',       label: 'File Tree',         icon: 'fa-folder-tree'          },
+            ]
+
+            // ── Smart Editor demo state ───────────────────────────────
+            const MD_SAMPLE = [
+                '# Hello from Smart Editor',
+                '',
+                'This is a **Markdown** editor with _live preview_.',
+                '',
+                '## Features',
+                '- Auto-close brackets: type `{` and `}` appears',
+                '- Tab / Shift+Tab indent',
+                '- Bold, italic, headings from the toolbar',
+                '',
+                '> Try the **Split** view to write and preview side by side.',
+                '',
+                '```python',
+                'def greet(name):',
+                '    return f"Hello, {name}!"',
+                '```',
+            ].join('\n')
+
+            const PY_SAMPLE = [
+                'from app.core.utils.job_runner import register_handler, enqueue_job',
+                '',
+                '',
+                '@register_handler("demo.task")',
+                'def my_task(ctx, meta):',
+                '    total = meta.get("total", 50)',
+                '    for i in range(total):',
+                '        ctx.checkpoint()',
+                '        ctx.update_progress(int(i / total * 100))',
+                '        ctx.log(f"Step {i}")',
+                '    return {"done": total}',
+            ].join('\n')
+
+            const editor_demos = [
+                { id: 'text',     label: 'Plain text', mode: 'text',     language: null,         placeholder: 'Type anything…' },
+                { id: 'markdown', label: 'Markdown',   mode: 'markdown', language: null,         placeholder: '## Hello world' },
+                { id: 'code',     label: 'Code',       mode: 'code',     language: 'python',     placeholder: '# Python code…' },
+            ]
+
+            const editor_values = ref({
+                text:     'Hello, world! Try typing { or [ to see auto-close.',
+                markdown: MD_SAMPLE,
+                code:     PY_SAMPLE,
+            })
+            const active_editor_demo = ref('text')
+
+            // ── Chart Viewer demo state ──────────────────────────────
+            const CHART_PRESETS = {
+                timeseries: {
+                    title: 'Platform Metrics', subtitle: 'Last 6 months',
+                    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    series: [
+                        { name: 'Users',    values: [42,  65,  58,  83,  91,  107] },
+                        { name: 'Sessions', values: [118, 190, 162, 240, 275, 320] },
+                        { name: 'Revenue',  values: [12,  18,  15,  24,  29,   35] },
+                    ],
+                    meta: { x_label: 'Month', y_label: 'Count' },
+                },
+                distribution: {
+                    title: 'Traffic Sources', subtitle: 'Current month',
+                    categories: ['Organic', 'Direct', 'Referral', 'Social', 'Email'],
+                    series: [
+                        { name: 'Visits', values: [4200, 2800, 1600, 980, 420] },
+                    ],
+                    meta: { unit: '', x_label: 'Source', y_label: 'Visits' },
+                },
+                score: {
+                    title: 'System Health', subtitle: 'Real-time',
+                    categories: ['Uptime', 'CPU', 'Memory', 'Disk', 'Network'],
+                    series: [
+                        { name: 'Score', values: [98, 72, 65, 41, 88] },
+                    ],
+                    meta: { unit: '%', x_label: 'Metric', y_label: 'Score' },
+                },
+            }
+
+            const ALL_VIEWS = ['line','area','bar','bar-h','pie','donut','scatter','radar','funnel','gauge','treemap','heatmap','table']
+
+            const chart_presets = [
+                { id: 'timeseries',   label: 'Time Series',   icon: 'fa-chart-line'  },
+                { id: 'distribution', label: 'Distribution',  icon: 'fa-chart-pie'   },
+                { id: 'score',        label: 'Scores / KPIs', icon: 'fa-gauge-high'  },
+            ]
+            const active_chart_preset = ref('timeseries')
+            const current_chart_data  = computed(() => CHART_PRESETS[active_chart_preset.value])
+
+            // ── Graph Viewer demo state ───────────────────────────────
+            const graph_demos = [
+                { id: 'simple', label: 'Simple (viewer)' },
+                { id: 'dev',    label: 'Dev (full UI)'   },
+            ]
+            const active_graph_demo = ref('simple')
+
+            const graph_config = {
+                graph: { directed: true },
+                nodes: {
+                    id_field:    'id',
+                    label_field: 'label',
+                    type_field:  'type',
+                    default: { color: '#888', shape: 'circle', size: 16 },
+                    types: {
+                        person:  { color: '#4e79a7', shape: 'circle',  size: 22, label_field: 'name' },
+                        company: { color: '#f28e2b', shape: 'hexagon', size: 28 },
+                        tool:    { color: '#76b7b2', shape: 'square',  size: 18 },
+                        project: { color: '#e15759', shape: 'circle',  size: 20 },
+                    }
+                },
+                edges: {
+                    from_field:  'from',
+                    to_field:    'to',
+                    label_field: 'label',
+                    type_field:  'type',
+                    default: { color: '#aaa' },
+                    types: {
+                        works_at:  { color: '#4e79a7', dashed: false },
+                        founded:   { color: '#f28e2b', dashed: true  },
+                        uses:      { color: '#76b7b2', dashed: false },
+                        leads:     { color: '#e15759', dashed: false },
+                    }
+                }
+            }
+
+            const graph_data = {
+                nodes: [
+                    { id: '1', type: 'person',  name: 'Alice',          label: 'Alice'          },
+                    { id: '2', type: 'person',  name: 'Bob',            label: 'Bob'            },
+                    { id: '3', type: 'person',  name: 'Carol',          label: 'Carol'          },
+                    { id: '4', type: 'company', label: 'Acme Corp',     name: 'Acme Corp'       },
+                    { id: '5', type: 'company', label: 'DevHouse',      name: 'DevHouse'        },
+                    { id: '6', type: 'tool',    label: 'Flask',         name: 'Flask'           },
+                    { id: '7', type: 'tool',    label: 'Vue 3',         name: 'Vue 3'           },
+                    { id: '8', type: 'project', label: 'Launchpad',     name: 'Launchpad'       },
+                ],
+                edges: [
+                    { from: '1', to: '4', type: 'works_at', label: 'Employee'  },
+                    { from: '2', to: '4', type: 'works_at', label: 'Employee'  },
+                    { from: '3', to: '5', type: 'works_at', label: 'Employee'  },
+                    { from: '2', to: '5', type: 'founded',  label: 'Founder'   },
+                    { from: '1', to: '8', type: 'leads',    label: 'Tech Lead' },
+                    { from: '3', to: '8', type: 'leads',    label: 'Contributes' },
+                    { from: '8', to: '6', type: 'uses',     label: 'Backend'   },
+                    { from: '8', to: '7', type: 'uses',     label: 'Frontend'  },
+                ]
+            }
+
+            const code_demos = CODE_DEMOS
+
+            const current_demo = computed(() =>
+                code_demos.find(d => d.id === active_demo.value) ?? code_demos[0]
+            )
+
+            // ── Intersection observer for active nav link ─────────────
+            // ── ANSI Terminal demo data ───────────────────────────────
+            const term_entries = [
+                { ts: new Date(Date.now() - 5000).toISOString(), level: 'info',    msg: 'Starting task: Import MISP taxonomies…' },
+                { ts: new Date(Date.now() - 4800).toISOString(), level: 'info',    msg: '\x1b[36mFound 117 taxonomy files\x1b[0m in modules/misp-taxonomies' },
+                { ts: new Date(Date.now() - 4600).toISOString(), level: 'success', msg: '  [\x1b[32m✓\x1b[0m] tlp → 5 tags imported' },
+                { ts: new Date(Date.now() - 4400).toISOString(), level: 'success', msg: '  [\x1b[32m✓\x1b[0m] admiralty-scale → 6 tags imported' },
+                { ts: new Date(Date.now() - 4200).toISOString(), level: 'success', msg: '  [\x1b[32m✓\x1b[0m] misp → 41 tags imported' },
+                { ts: new Date(Date.now() - 4000).toISOString(), level: 'warning', msg: '  [\x1b[33m!\x1b[0m] circl-ttp → 0 new tags (already exists)' },
+                { ts: new Date(Date.now() - 3800).toISOString(), level: 'error',   msg: '  [\x1b[31m✗\x1b[0m] broken-taxonomy → \x1b[31mJSON parse error\x1b[0m: Unexpected token }' },
+                { ts: new Date(Date.now() - 3200).toISOString(), level: 'info',    msg: '\x1b[1m\x1b[32mCompleted:\x1b[0m \x1b[1m412\x1b[0m tags imported, \x1b[33m3\x1b[0m skipped, \x1b[31m1\x1b[0m error in \x1b[36m3.2s\x1b[0m' },
+            ]
+
+            // ── ANSI Terminal demo state ──────────────────────────────
+            const at_mode = ref('view')
+            const at_log  = ref(term_entries.slice())
+
+            function on_at_submit(text) {
+                at_log.value.push({ ts: new Date().toISOString(), level: 'info',    msg: '> ' + text })
+                at_log.value.push({ ts: new Date().toISOString(), level: 'warning', msg: 'command not found: ' + text.split(' ')[0] })
+            }
+
+            // ── Key-Value demo data ───────────────────────────────────
+            const kv_data = {
+                job_type:   'tags.import_taxonomy',
+                job_id:     42,
+                user_id:    1,
+                input:      { taxonomy: 'tlp', force: false, dry_run: false },
+                stats:      { imported: 412, skipped: 3, errors: 1, duration_s: 3.2 },
+                error:      null,
+                tags:       ['TLP:RED', 'TLP:AMBER', 'TLP:GREEN', 'TLP:CLEAR', 'TLP:WHITE'],
+                started_at: new Date().toISOString(),
+            }
+
+            // ── File Tree demo data ───────────────────────────────────
+            const ft_mode    = ref('read')
+
+            const tree_nodes = [
+                { name: 'app', type: 'dir', path: 'app', ext: null, children: [
+                    { name: '__init__.py',  type: 'file', path: 'app/__init__.py',  ext: 'py'   },
+                    { name: 'api',         type: 'dir',  path: 'app/api',          ext: null, children: [
+                        { name: 'api.py',          type: 'file', path: 'app/api/api.py',          ext: 'py' },
+                        { name: 'tags_api.py',     type: 'file', path: 'app/api/tags_api.py',     ext: 'py' },
+                        { name: 'jobs_api.py',     type: 'file', path: 'app/api/jobs_api.py',     ext: 'py' },
+                    ]},
+                    { name: 'features',    type: 'dir',  path: 'app/features',     ext: null, children: [
+                        { name: 'tags',    type: 'dir',  path: 'app/features/tags',    ext: null, children: [
+                            { name: 'tags.py',      type: 'file', path: '…/tags.py',      ext: 'py' },
+                            { name: 'tags_core.py', type: 'file', path: '…/tags_core.py', ext: 'py' },
+                        ]},
+                        { name: 'jobs',    type: 'dir',  path: 'app/features/jobs',    ext: null, children: [
+                            { name: 'jobs.py',      type: 'file', path: '…/jobs.py',      ext: 'py' },
+                            { name: 'jobs_core.py', type: 'file', path: '…/jobs_core.py', ext: 'py' },
+                        ]},
+                    ]},
+                    { name: 'static',      type: 'dir',  path: 'app/static',       ext: null, children: [
+                        { name: 'js',  type: 'dir', path: 'app/static/js',  ext: null, children: [] },
+                        { name: 'css', type: 'dir', path: 'app/static/css', ext: null, children: [] },
+                    ]},
+                ]},
+                { name: 'modules',    type: 'dir',  path: 'modules',      ext: null, children: [
+                    { name: 'misp-taxonomies', type: 'dir',  path: 'modules/misp-taxonomies', ext: null, children: [] },
+                    { name: 'misp-galaxy',     type: 'dir',  path: 'modules/misp-galaxy',     ext: null, children: [] },
+                ]},
+                { name: 'tests',      type: 'dir',  path: 'tests',        ext: null, children: [] },
+                { name: 'CLAUDE.md',  type: 'file', path: 'CLAUDE.md',    ext: 'md'   },
+                { name: 'launch.sh',  type: 'file', path: 'launch.sh',    ext: 'sh'   },
+                { name: '.env',       type: 'file', path: '.env',          ext: 'env'  },
+            ]
+
+            // ── Timeline demo data ────────────────────────────────────
+            const now = new Date()
+            function ago(h) { return new Date(now.getTime() - h * 3600000).toISOString() }
+
+            const timeline_items = [
+                { uuid: 'tl-1', title: 'User admin@admin.admin logged in', level: 'info',    category: 'user',     action: 'login',       created_at: ago(0.1),  actor_name: 'Admin',       description: null },
+                { uuid: 'tl-2', title: 'Tag "APT29" created',              level: 'success', category: 'admin',    action: 'create',      created_at: ago(0.3),  actor_name: 'Admin',       description: 'Tag created from MISP galaxy cluster. Source: threat-actor.' },
+                { uuid: 'tl-3', title: 'Connector "Shodan" test failed',   level: 'error',   category: 'connectors', action: 'test',      created_at: ago(1.2),  actor_name: 'Admin',       description: 'Connection refused on host api.shodan.io:443. Verify API key and network access. This is a longer description to demonstrate the collapsible "more" button that appears when text exceeds the maxDesc threshold configured on the component.' },
+                { uuid: 'tl-4', title: 'DB backup created',                level: 'success', category: 'database', action: 'create',      created_at: ago(2.5),  actor_name: null,          description: 'Automatic scheduled backup: backup_2026-06-15.db (1.2 MB)' },
+                { uuid: 'tl-5', title: 'Password changed',                 level: 'warning', category: 'security', action: 'edit',        created_at: ago(5),    actor_name: 'Editor',      description: null },
+                { uuid: 'tl-6', title: 'Background job completed',         level: 'success', category: 'system',   action: 'job_done',    created_at: ago(8),    actor_name: null,          description: 'tags.import_galaxy — 412 tags imported in 3.2s' },
+                { uuid: 'tl-7', title: 'Role "Editor" permissions updated', level: 'warning', category: 'admin',   action: 'edit',        created_at: ago(26),   actor_name: 'Admin',       description: 'Added: tags.edit, tags.delete. Removed: users.list' },
+                { uuid: 'tl-8', title: 'New user registered',              level: 'info',    category: 'user',     action: 'create',      created_at: ago(50),   actor_name: null,          description: 'test@example.com — email verification sent' },
+            ]
+
+            function on_tl_select(item) {
+                create_message(`Selected: ${item.title}`, 'info')
+            }
+
+            // ── File Tree demo: simulate fetching file content ────────
+            const DEMO_FILE_CONTENT = {
+                'app/__init__.py':        'from flask import Flask\nfrom .api.api import api_bp\n\ndef create_app():\n    app = Flask(__name__)\n    app.register_blueprint(api_bp)\n    return app\n',
+                'app/api/api.py':         'from flask import Blueprint\nfrom flask_restx import Api\n\napi_bp = Blueprint("api", __name__, url_prefix="/api")\napi = Api(api_bp)\n',
+                'app/api/tags_api.py':    'from flask_restx import Namespace, Resource\n\ntags_ns = Namespace("tags", description="Tag management")\n\n@tags_ns.route("/")\nclass TagList(Resource):\n    def get(self):\n        return [], 200\n',
+                'CLAUDE.md':              '# Flask Launchpad — Codebase Guide\n\n## Rules\n\n- No DB in routes…\n',
+                'launch.sh':              '#!/usr/bin/env bash\n# Flask Launchpad launcher\nset -euo pipefail\n\nif [[ "$1" == "--start" ]]; then\n    python app.py\nfi\n',
+                '.env':                   '# Environment variables\nSECRET_KEY=change-me\nFLASK_HOST=127.0.0.1\nFLASK_PORT=7009\n',
+            }
+
+            async function demoFetchContent(node) {
+                await new Promise(r => setTimeout(r, 300))
+                const content = DEMO_FILE_CONTENT[node.path]
+                if (!content) return { content: `# ${node.name}\n\n(demo content not available)` }
+                return { content }
+            }
+
+            let observer = null
+
+            function setup_observer() {
+                const sections = document.querySelectorAll('.lab-card[id]')
+                observer = new IntersectionObserver(entries => {
+                    entries.forEach(e => {
+                        if (e.isIntersecting) active_section.value = e.target.id
+                    })
+                }, { threshold: 0.3, rootMargin: '-60px 0px -40% 0px' })
+                sections.forEach(s => observer.observe(s))
+            }
+
+            function scroll_to(id) {
+                const el = document.getElementById(id)
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                active_section.value = id
+            }
+
+            onMounted(() => {
+                ready.value = true
+                setTimeout(setup_observer, 200)
+            })
+            onUnmounted(() => observer?.disconnect())
+
+            return {
+                message_list, ready,
+                diff_left, diff_right,
+                active_demo, active_section,
+                components, code_demos, current_demo,
+                editor_demos, editor_values, active_editor_demo,
+                graph_demos, active_graph_demo, graph_config, graph_data,
+                chart_presets, active_chart_preset, current_chart_data, ALL_VIEWS,
+                timeline_items, on_tl_select,
+                term_entries, at_mode, at_log, on_at_submit,
+                kv_data, tree_nodes, demoFetchContent, ft_mode,
+                scroll_to,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

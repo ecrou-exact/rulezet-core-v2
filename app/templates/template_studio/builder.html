@@ -1,0 +1,1104 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/template_studio/template_studio.css') }}">
+<style>
+/* Override main-container padding for full-height builder */
+#main-container { padding: 0 !important; overflow: hidden !important; }
+</style>
+{% endblock %}
+
+{% block page_title %}Template Studio{% endblock %}
+
+{% block content %}
+<div class="ts-builder-wrap" id="ts-app" v-cloak>
+
+    {# ── Top bar ── #}
+    <div class="ts-header">
+        <a href="{{ url_for('template_studio.index') }}" class="ts-header-back">
+            <i class="fas fa-arrow-left"></i> Pages
+        </a>
+        <div class="ts-header-divider"></div>
+        <div class="ts-header-name">
+            <span v-if="page_name" style="font-family:var(--font-display);">[[ page_name ]]</span>
+            <span v-else class="ts-header-name-placeholder">Untitled page</span>
+        </div>
+        <span class="ts-status-pill" :class="is_published ? 'published' : 'draft'">
+            [[ is_published ? 'Published' : 'Draft' ]]
+        </span>
+        <div class="ts-header-actions">
+            <button v-if="saved_uuid" class="btn btn-sm btn-outline-secondary"
+                    @click="openPreview" style="font-size:.78rem;">
+                <i class="fas fa-eye me-1"></i> Preview
+            </button>
+            <button v-if="saved_uuid && is_published"
+                    class="btn btn-sm btn-outline-warning"
+                    :disabled="is_publishing" @click="togglePublish"
+                    style="font-size:.78rem;">
+                <i class="fas fa-circle-minus me-1"></i> Unpublish
+            </button>
+            <button v-if="saved_uuid && !is_published"
+                    class="btn btn-sm btn-outline-success"
+                    :disabled="is_publishing" @click="togglePublish"
+                    style="font-size:.78rem;">
+                <i class="fas fa-circle-check me-1"></i> Publish
+            </button>
+            <button class="btn btn-sm btn-primary" :disabled="is_saving" @click="savePage"
+                    style="font-size:.78rem;">
+                <i class="fas" :class="is_saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+                [[ is_saving ? 'Saving…' : 'Save' ]]
+            </button>
+        </div>
+    </div>
+
+    {# ── 3-panel body ── #}
+    <div class="ts-body">
+
+        {# ── Left: Component palette ── #}
+        <div class="ts-palette">
+            <div class="ts-palette-heading">Components</div>
+
+            {# Palette items — draggable to canvas cells #}
+            <div id="ts-palette-items">
+                <div v-for="comp in COMPONENTS" :key="comp.type"
+                     class="ts-palette-item"
+                     :data-type="comp.type"
+                     draggable="true"
+                     @dragstart="startDragPalette($event, comp.type)"
+                     @dragend="endDrag">
+                    <div class="ts-palette-icon">
+                        <i :class="'fas ' + comp.icon"></i>
+                    </div>
+                    <div class="ts-palette-text">
+                        <div class="ts-palette-label">[[ comp.label ]]</div>
+                        <div class="ts-palette-sub">[[ comp.desc ]]</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Center: Canvas + preview ── #}
+        <div class="ts-main">
+            <div class="ts-canvas-scroll">
+
+                {# Explicit 3-col grid — cells always visible as drop targets #}
+                <div id="ts-canvas-grid"
+                     class="ts-canvas-grid"
+                     :style="`grid-template-rows: repeat(${totalRows}, minmax(90px, auto))`"
+                     @dragover.prevent
+                     @dragleave="onCanvasDragLeave"
+                     @drop.prevent="endDrag()">
+
+                    {# Background cells — always rendered, one per grid slot #}
+                    <div v-for="cell in gridCells"
+                         :key="'cell-' + cell.id"
+                         class="ts-grid-cell"
+                         :class="{
+                             'is-occupied':      isCellOccupied(cell.row, cell.col),
+                             'is-drop-valid':    is_dragging && hoveredCells.has(cell.id) && canDropHovered,
+                             'is-drop-invalid':  is_dragging && hoveredCells.has(cell.id) && !canDropHovered,
+                             'is-dragging-mode': is_dragging,
+                         }"
+                         :style="`grid-column:${cell.col};grid-row:${cell.row}`"
+                         @dragover.prevent="onCellDragOver($event, cell)"
+                         @drop.prevent="dropOnCell($event, cell)">
+                    </div>
+
+                    {# Hint when canvas is empty #}
+                    <div v-if="!sections.length"
+                         class="ts-canvas-hint"
+                         style="grid-column:1/span 3;grid-row:1/span 3;z-index:3;">
+                        <i class="fas fa-layer-group"></i>
+                        <p>Glisse un composant depuis la palette sur une cellule</p>
+                    </div>
+
+                    {# Section cards — placed at explicit grid positions #}
+                    <div v-for="section in sections"
+                         :key="section.id"
+                         :data-sid="section.id"
+                         class="ts-card"
+                         :class="{
+                             'is-selected':     selected_id === section.id,
+                             'is-spacer':       section.type === 'spacer',
+                             'is-drag-src':     dragging_id === section.id,
+                             'is-in-selection': selected_ids.includes(section.id),
+                             'is-resize-active': resizing && resizing.sectionId === section.id,
+                         }"
+                         :style="`grid-column:${section.col||1}/span ${section.col_span||1};grid-row:${section.row||1}/span ${section.row_span||1}`"
+                         draggable="true"
+                         @click="selectSection(section.id, $event)"
+                         @dragstart="startDragSection($event, section)"
+                         @dragend="endDrag">
+
+                        {# Top bar: type badge + delete #}
+                        <div class="ts-card-top">
+                            <div class="ts-card-drag">
+                                <i class="fas fa-grip-horizontal ts-card-grip"></i>
+                                <span class="ts-card-type-badge">
+                                    <i :class="'fas ' + sectionMeta(section.type).icon"></i>
+                                </span>
+                                <span class="ts-card-type-label">[[ sectionMeta(section.type).label ]]</span>
+                            </div>
+                            <div class="ts-card-actions" @click.stop>
+                                <button class="ts-card-delete" @click="removeSection(section.id)" title="Remove">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {# Summary row — hidden for spacers #}
+                        <div v-if="section.type !== 'spacer'"
+                             class="ts-card-info" @click.stop="selectSection(section.id, $event)">
+                            <span class="ts-card-summary">[[ sectionSummary(section) ]]</span>
+                            <span v-if="sectionSub(section)" class="ts-card-sub">[[ sectionSub(section) ]]</span>
+                        </div>
+
+                        {# Right edge drag handle — col_span resize #}
+                        <div class="ts-resize-handle ts-resize-handle-r"
+                             @mousedown.prevent.stop="startResize($event, section, 'col')"
+                             @click.stop>
+                        </div>
+
+                        {# Bottom edge drag handle — row_span resize #}
+                        <div class="ts-resize-handle ts-resize-handle-b"
+                             @mousedown.prevent.stop="startResize($event, section, 'row')"
+                             @click.stop>
+                        </div>
+
+                        {# Corner drag handle — resize both simultaneously #}
+                        <div class="ts-resize-handle ts-resize-handle-br"
+                             @mousedown.prevent.stop="startResize($event, section, 'corner')"
+                             @click.stop>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            {# ── Preview toggle ── #}
+            <div class="ts-preview-toggle" @click="show_preview = !show_preview">
+                <i :class="show_preview ? 'fas fa-chevron-down' : 'fas fa-chevron-up'"></i>
+                <span>[[ show_preview ? 'Hide preview' : 'Show live preview' ]]</span>
+                <span style="margin-left:auto;font-size:.7rem;color:var(--text-muted);">
+                    [[ sections.length ]] section[[ sections.length !== 1 ? 's' : '' ]]
+                </span>
+            </div>
+
+            {# ── Live preview panel ── #}
+            <div class="ts-preview-panel" :class="{ 'is-open': show_preview }">
+                <div class="ts-preview-inner"
+                     :style="`grid-template-rows: repeat(${totalRows}, auto)`">
+                    <div v-if="sections.length === 0"
+                         style="grid-column:1/span 3;text-align:center;padding:1rem;color:var(--text-muted);font-size:.82rem;">
+                        Aucune section — glisse des composants pour voir la preview.
+                    </div>
+                    <template v-else v-for="section in sections" :key="section.id">
+                        <div class="ts-preview-section"
+                             :style="`grid-column:${section.col||1}/span ${section.col_span||1};grid-row:${section.row||1}/span ${section.row_span||1}`">
+                            <div class="ts-preview-section-label">
+                                <i :class="'fas ' + sectionMeta(section.type).icon + ' me-1'"></i>
+                                [[ sectionMeta(section.type).label ]]
+                            </div>
+                            <div class="ts-preview-section-body">
+
+                                {# page_header preview #}
+                                <template v-if="section.type === 'page_header'">
+                                    <div class="ts-preview-header-crumb">
+                                        <template v-for="(c, i) in (section.config.breadcrumb || [{ label: 'Home' }])" :key="i">
+                                            <span v-if="i>0" style="margin:0 3px;opacity:.5;">/</span>
+                                            <span>[[ c.label ]]</span>
+                                        </template>
+                                    </div>
+                                    <div class="ts-preview-header-title">[[ section.config.title || 'Page Title' ]]</div>
+                                </template>
+
+                                {# data_table preview #}
+                                <template v-else-if="section.type === 'data_table'">
+                                    <div style="display:flex;gap:4px;margin-bottom:5px;">
+                                        <span v-for="col in (section.config.columns || []).slice(0,4)" :key="col.key"
+                                              style="flex:1;font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);background:var(--bg-elevated);padding:2px 4px;border-radius:3px;">
+                                            [[ col.label || col.key || '...' ]]
+                                        </span>
+                                        <span v-if="!section.config.columns || section.config.columns.length === 0"
+                                              style="font-size:.68rem;color:var(--text-muted);">No columns configured</span>
+                                    </div>
+                                    <span class="ts-skel w100"></span>
+                                    <span class="ts-skel w70"></span>
+                                    <span class="ts-skel w90"></span>
+                                </template>
+
+                                {# cards_grid preview #}
+                                <template v-else-if="section.type === 'cards_grid'">
+                                    <div class="ts-preview-cards"
+                                         :style="'grid-template-columns: repeat(' + Math.min(section.config.cols || 3, 3) + ', 1fr)'">
+                                        <div v-for="n in Math.min(section.config.cols || 3, 3)" :key="n"
+                                             class="ts-preview-card">
+                                            <span class="ts-skel w70"></span>
+                                            <span class="ts-skel w50"></span>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {# stats preview #}
+                                <template v-else-if="section.type === 'stats'">
+                                    <div class="ts-preview-stats">
+                                        <div v-for="stat in (section.config.stats || []).slice(0,4)" :key="stat.label"
+                                             class="ts-preview-stat">
+                                            <div class="ts-preview-stat-val">[[ stat.value || '—' ]]</div>
+                                            <div class="ts-preview-stat-label">[[ stat.label ]]</div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {# text_block preview #}
+                                <template v-else-if="section.type === 'text_block'">
+                                    <p style="font-size:.75rem;color:var(--text-secondary);margin:0;white-space:pre-wrap;overflow:hidden;max-height:60px;">
+                                        [[ (section.config.content || '').slice(0, 120) ]]
+                                    </p>
+                                </template>
+
+                                {# comments preview #}
+                                <template v-else-if="section.type === 'comments'">
+                                    <div style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text-muted);margin-bottom:4px;">
+                                        <i class="fas fa-comments" style="color:var(--brand);"></i>
+                                        <span>[[ section.config.object_type || '?' ]] #[[ section.config.object_id || '?' ]]</span>
+                                    </div>
+                                    <span class="ts-skel w100"></span>
+                                    <span class="ts-skel w70"></span>
+                                </template>
+
+                                {# spacer preview #}
+                                <template v-else-if="section.type === 'spacer'">
+                                    <div style="text-align:center;font-size:.65rem;color:var(--text-muted);opacity:.5;">
+                                        <i class="fas fa-border-all"></i> Espace vide
+                                    </div>
+                                </template>
+
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {# ── Right: Config panel ── #}
+        <div class="ts-config">
+            <div class="ts-config-tabs">
+                <button class="ts-config-tab" :class="{ 'is-active': tab === 'page' }" @click="tab = 'page'">
+                    <i class="fas fa-file-pen me-1"></i> Page
+                </button>
+                <button class="ts-config-tab" :class="{ 'is-active': tab === 'section' }"
+                        :disabled="!selected_section" @click="tab = 'section'">
+                    <i class="fas fa-sliders me-1"></i> Section
+                </button>
+            </div>
+
+            <div class="ts-config-body">
+
+                {# ── Page tab ── #}
+                <div v-show="tab === 'page'">
+
+                    <div class="ts-section-title" style="margin-top:0;">Page</div>
+
+                    <div class="ts-field">
+                        <label class="form-label">Name *</label>
+                        <input class="form-control form-control-sm" v-model="page_name"
+                               @input="onNameInput" placeholder="My Page" />
+                    </div>
+                    <div class="ts-field">
+                        <label class="form-label">Slug *</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text" style="font-size:.75rem;color:var(--text-muted);">/pages/</span>
+                            <input class="form-control" v-model="page_slug"
+                                   @input="slug_manual = true" placeholder="my-page" />
+                        </div>
+                        <div class="form-text" style="font-size:.7rem;">Letters, numbers, hyphens only.</div>
+                    </div>
+                    <div class="ts-field">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control form-control-sm" v-model="page_description"
+                                  rows="2" placeholder="Short description…" style="resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="ts-section-title">Navigation</div>
+
+                    <div class="ts-field">
+                        <label class="form-label">Nav group</label>
+                        <select class="form-select form-select-sm" v-model="page_nav_group">
+                            <option value="">Hidden (not in nav)</option>
+                            {% for g in nav_groups %}
+                            <option value="{{ g }}">{{ g }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div v-if="page_nav_group">
+                        <div class="ts-field">
+                            <label class="form-label">Nav label</label>
+                            <input class="form-control form-control-sm" v-model="page_nav_label"
+                                   :placeholder="page_name || 'Label'" />
+                        </div>
+                        <div class="ts-field">
+                            <label class="form-label">Nav icon</label>
+                            <div class="input-group input-group-sm">
+                                <input class="form-control" v-model="page_nav_icon" placeholder="fa-file" />
+                                <span class="input-group-text">
+                                    <i :class="'fas ' + (page_nav_icon || 'fa-file')"
+                                       style="color:var(--brand);width:14px;text-align:center;"></i>
+                                </span>
+                            </div>
+                            <div class="form-text" style="font-size:.7rem;">FontAwesome class, e.g. fa-users</div>
+                        </div>
+                    </div>
+
+                    <div class="ts-section-title">Access Control</div>
+
+                    <div class="ts-field">
+                        <label class="form-label">Required permission</label>
+                        <select class="form-select form-select-sm" v-model="page_permission">
+                            <option value="">All authenticated users</option>
+                            <option value="admin_only">Admins only</option>
+                            {% for pk in perm_keys %}
+                            <option value="{{ pk.key }}">{{ pk.label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text" style="font-size:.7rem;">Who can view this page when published.</div>
+                    </div>
+
+                </div>
+
+                {# ── Section tab ── #}
+                <div v-show="tab === 'section'">
+
+                    <div v-if="!selected_section" class="ts-no-select">
+                        <i class="fas fa-hand-pointer"></i>
+                        <p>Click a section in the canvas to configure it.</p>
+                    </div>
+
+                    <div v-if="selected_section">
+                        <div class="ts-section-type-badge" style="margin-top:0;">
+                            <i :class="'fas ' + sectionMeta(selected_section.type).icon"></i>
+                            [[ sectionMeta(selected_section.type).label ]]
+                        </div>
+
+                        {# Layout info (read-only — resize via arrows, move by dragging) #}
+                        <div class="ts-field">
+                            <label class="form-label">Position &amp; taille</label>
+                            <div style="display:flex;flex-wrap:wrap;gap:.4rem .75rem;font-size:.78rem;color:var(--text-muted);">
+                                <span><i class="fas fa-map-pin me-1" style="color:var(--brand);"></i>
+                                    Lig. [[ (selected_section.row||1) ]] · Col. [[ (selected_section.col||1) ]]</span>
+                                <span><i class="fas fa-arrows-left-right me-1" style="color:var(--brand);"></i>
+                                    [[ (selected_section.col_span||1) ]]/3 col.</span>
+                                <span><i class="fas fa-arrows-up-down me-1" style="color:var(--brand);"></i>
+                                    [[ (selected_section.row_span||1) ]]× haut.</span>
+                            </div>
+                            <div class="form-text" style="font-size:.7rem;">
+                                Glisse la carte pour la déplacer · flèches → ← ↓ ↑ pour redimensionner.
+                            </div>
+                        </div>
+
+                        {# ── page_header ── #}
+                        <template v-if="selected_section.type === 'page_header'">
+                            <div class="ts-section-title">Header</div>
+                            <div class="ts-field">
+                                <label class="form-label">Title</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.title" placeholder="Page Title" />
+                            </div>
+
+                            <div class="ts-section-title">Breadcrumb</div>
+                            <div v-for="(c, i) in (selected_section.config.breadcrumb || [])" :key="i"
+                                 class="ts-subfield-row">
+                                <input class="form-control" v-model="c.label" placeholder="Label" style="flex:2;" />
+                                <input class="form-control" v-model="c.href" placeholder="/path" style="flex:3;" />
+                                <button class="ts-subfield-del" @click="removeBreadcrumb(i)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button class="ts-add-row" @click="addBreadcrumb">
+                                <i class="fas fa-plus me-1"></i> Add item
+                            </button>
+
+                            <div class="ts-section-title">Action button</div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'hdr-' + selected_section.id"
+                                       v-model="selected_section.config.show_add_button" />
+                                <label :for="'hdr-' + selected_section.id">Show action button</label>
+                            </div>
+                            <template v-if="selected_section.config.show_add_button">
+                                <div class="ts-field">
+                                    <label class="form-label">Label</label>
+                                    <input class="form-control form-control-sm"
+                                           v-model="selected_section.config.add_button_label" placeholder="Add New" />
+                                </div>
+                                <div class="ts-field">
+                                    <label class="form-label">Href</label>
+                                    <input class="form-control form-control-sm"
+                                           v-model="selected_section.config.add_button_href" placeholder="/items/new" />
+                                </div>
+                                <div class="ts-field">
+                                    <label class="form-label">Icon</label>
+                                    <input class="form-control form-control-sm"
+                                           v-model="selected_section.config.add_button_icon" placeholder="fa-plus" />
+                                </div>
+                            </template>
+                        </template>
+
+                        {# ── data_table ── #}
+                        <template v-else-if="selected_section.type === 'data_table'">
+                            <div class="ts-section-title">Data Source</div>
+                            <div class="ts-field">
+                                <label class="form-label">API fetch URL *</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.fetch_url" placeholder="/api/items/" />
+                                <div class="form-text" style="font-size:.7rem;">
+                                    Must return <code>{ items: [], total: N }</code>
+                                </div>
+                            </div>
+
+                            <div class="ts-section-title">Options</div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'dtv-' + selected_section.id"
+                                       v-model="selected_section.config.can_view" />
+                                <label :for="'dtv-' + selected_section.id">Row is clickable (view)</label>
+                            </div>
+                            <div class="ts-field" v-if="selected_section.config.can_view" style="margin-top:.4rem;">
+                                <label class="form-label">View URL pattern</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.view_url" placeholder="/items/{uuid}" />
+                            </div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'dtd-' + selected_section.id"
+                                       v-model="selected_section.config.can_delete" />
+                                <label :for="'dtd-' + selected_section.id">Show delete action</label>
+                            </div>
+
+                            <div class="ts-section-title">Columns</div>
+                            <div v-for="(col, i) in (selected_section.config.columns || [])" :key="i"
+                                 style="margin-bottom:.5rem;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:.5rem;background:var(--bg-elevated);">
+                                <div class="d-flex gap-1 mb-2">
+                                    <input class="form-control form-control-sm" v-model="col.key"
+                                           placeholder="key" style="flex:1;" />
+                                    <input class="form-control form-control-sm" v-model="col.label"
+                                           placeholder="Label" style="flex:1;" />
+                                    <button class="ts-subfield-del" @click="removeColumn(i)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <select class="form-select form-select-sm" v-model="col.type" style="flex:1;">
+                                        <option value="">text</option>
+                                        <option value="date">date</option>
+                                        <option value="boolean">boolean</option>
+                                        <option value="badge">badge</option>
+                                    </select>
+                                    <input class="form-control form-control-sm" v-model="col.width"
+                                           placeholder="width" style="width:60px;" />
+                                    <div class="ts-check-row" style="margin:0;white-space:nowrap;">
+                                        <input type="checkbox" :id="'cs-'+i" v-model="col.sortable" />
+                                        <label :for="'cs-'+i" style="font-size:.75rem;">Sort</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="ts-add-row" @click="addColumn">
+                                <i class="fas fa-plus me-1"></i> Add column
+                            </button>
+                        </template>
+
+                        {# ── cards_grid ── #}
+                        <template v-else-if="selected_section.type === 'cards_grid'">
+                            <div class="ts-section-title">Grid</div>
+                            <div class="ts-field">
+                                <label class="form-label">Section title</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.section_title" placeholder="Items" />
+                            </div>
+                            <div class="ts-field">
+                                <label class="form-label">API fetch URL</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.fetch_url" placeholder="/api/items/" />
+                            </div>
+                            <div class="ts-field">
+                                <label class="form-label">Columns per row</label>
+                                <select class="form-select form-select-sm" v-model="selected_section.config.cols">
+                                    <option :value="2">2</option>
+                                    <option :value="3">3 (default)</option>
+                                    <option :value="4">4</option>
+                                </select>
+                            </div>
+
+                            <div class="ts-section-title">Actions</div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'cge-'+selected_section.id"
+                                       v-model="selected_section.config.show_edit" />
+                                <label :for="'cge-'+selected_section.id">Show edit link</label>
+                            </div>
+                            <div class="ts-field" v-if="selected_section.config.show_edit" style="margin-top:.4rem;">
+                                <label class="form-label">Edit URL pattern</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.edit_url" placeholder="/items/{uuid}/edit" />
+                            </div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'cgd-'+selected_section.id"
+                                       v-model="selected_section.config.show_delete" />
+                                <label :for="'cgd-'+selected_section.id">Show delete</label>
+                            </div>
+
+                            <div class="ts-section-title">Card fields</div>
+                            <div v-for="(f, i) in (selected_section.config.card_fields || [])" :key="i"
+                                 class="ts-subfield-row">
+                                <input class="form-control" v-model="f.key" placeholder="key" style="flex:1;" />
+                                <input class="form-control" v-model="f.label" placeholder="Label" style="flex:1;" />
+                                <button class="ts-subfield-del" @click="removeCardField(i)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button class="ts-add-row" @click="addCardField">
+                                <i class="fas fa-plus me-1"></i> Add field
+                            </button>
+                        </template>
+
+                        {# ── stats ── #}
+                        <template v-else-if="selected_section.type === 'stats'">
+                            <div class="ts-section-title">Stat items</div>
+                            <div v-for="(stat, i) in (selected_section.config.stats || [])" :key="i"
+                                 style="margin-bottom:.6rem;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:.55rem;background:var(--bg-elevated);">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span style="font-size:.68rem;font-weight:600;color:var(--text-muted);">
+                                        Stat [[ i+1 ]]
+                                    </span>
+                                    <button class="ts-subfield-del" @click="removeStat(i)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-1 mb-1">
+                                    <input class="form-control form-control-sm" v-model="stat.label"
+                                           placeholder="Label" style="flex:2;" />
+                                    <input class="form-control form-control-sm" v-model="stat.value"
+                                           placeholder="42" style="flex:1;" />
+                                </div>
+                                <input class="form-control form-control-sm" v-model="stat.icon"
+                                       placeholder="fa-chart-bar (FontAwesome)" />
+                            </div>
+                            <button class="ts-add-row" @click="addStat">
+                                <i class="fas fa-plus me-1"></i> Add stat
+                            </button>
+                        </template>
+
+                        {# ── text_block ── #}
+                        <template v-else-if="selected_section.type === 'text_block'">
+                            <div class="ts-section-title">Content</div>
+                            <div class="ts-field">
+                                <label class="form-label">Text</label>
+                                <textarea class="form-control form-control-sm"
+                                          v-model="selected_section.config.content"
+                                          rows="7" style="resize:vertical;"
+                                          placeholder="Your content here…"></textarea>
+                            </div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'tbc-'+selected_section.id"
+                                       v-model="selected_section.config.show_card" />
+                                <label :for="'tbc-'+selected_section.id">Wrap in card</label>
+                            </div>
+                        </template>
+
+                        {# ── comments ── #}
+                        <template v-else-if="selected_section.type === 'comments'">
+                            <div class="ts-section-title">Thread cible</div>
+                            <div class="ts-field">
+                                <label class="form-label">Object type *</label>
+                                <input class="form-control form-control-sm"
+                                       v-model="selected_section.config.object_type"
+                                       placeholder="page" />
+                                <div class="form-text" style="font-size:.7rem;">
+                                    Catégorie du thread (ex: page, article, project)
+                                </div>
+                            </div>
+                            <div class="ts-field">
+                                <label class="form-label">Object ID</label>
+                                <input class="form-control form-control-sm" type="number"
+                                       v-model.number="selected_section.config.object_id"
+                                       placeholder="0" />
+                                <div class="form-text" style="font-size:.7rem;">
+                                    ID de l'objet cible (0 = thread global)
+                                </div>
+                            </div>
+                            <div class="ts-section-title">Permissions utilisateurs</div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'com-c-'+selected_section.id"
+                                       v-model="selected_section.config.can_create" />
+                                <label :for="'com-c-'+selected_section.id">Poster des commentaires</label>
+                            </div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'com-e-'+selected_section.id"
+                                       v-model="selected_section.config.can_edit_own" />
+                                <label :for="'com-e-'+selected_section.id">Modifier ses propres commentaires</label>
+                            </div>
+                            <div class="ts-check-row">
+                                <input type="checkbox" :id="'com-d-'+selected_section.id"
+                                       v-model="selected_section.config.can_delete_own" />
+                                <label :for="'com-d-'+selected_section.id">Supprimer ses propres commentaires</label>
+                            </div>
+                        </template>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, nextTick, onMounted, onUnmounted } = Vue
+    import { apiFetch, TOAST } from '/static/js/constants.js'
+    import { create_message } from '/static/js/toaster.js'
+
+    const INIT = {{ (page.to_json() if page else '{}') | tojson }};
+
+    const COMPONENTS = [
+        { type: 'page_header', label: 'Page Header',  icon: 'fa-heading',    desc: 'Title + breadcrumb' },
+        { type: 'data_table',  label: 'Data Table',   icon: 'fa-table',      desc: 'API-powered table' },
+        { type: 'cards_grid',  label: 'Cards Grid',   icon: 'fa-grip',       desc: 'Grid of data cards' },
+        { type: 'stats',       label: 'Stats Row',    icon: 'fa-chart-bar',  desc: 'Metric counters' },
+        { type: 'text_block',  label: 'Text Block',   icon: 'fa-align-left', desc: 'Free text / HTML' },
+        { type: 'comments',    label: 'Comments',     icon: 'fa-comments',   desc: 'Thread de commentaires' },
+        { type: 'spacer',      label: 'Spacer',       icon: 'fa-border-all', desc: 'Espace vide' },
+    ]
+    const META     = Object.fromEntries(COMPONENTS.map(c => [c.type, c]))
+    const DEFAULTS = {
+        page_header: {
+            title: 'Page Title',
+            breadcrumb: [{ label: 'Home', href: '/' }, { label: 'Page', href: null }],
+            show_add_button: false, add_button_label: 'Add New', add_button_href: '', add_button_icon: 'fa-plus',
+        },
+        data_table: { fetch_url: '', columns: [], can_view: false, can_delete: false, view_url: '' },
+        cards_grid: {
+            section_title: 'Items', fetch_url: '', card_fields: [],
+            cols: 3, show_edit: false, show_delete: false, edit_url: '',
+        },
+        stats:      { stats: [{ label: 'Stat 1', value: '0', icon: 'fa-chart-bar' }] },
+        text_block: { content: 'Enter your content here...', show_card: true },
+        comments:   { object_type: 'page', object_id: 0, can_create: true, can_edit_own: true, can_delete_own: false },
+        spacer:     {},
+    }
+    const COLS           = 3
+    const MIN_EXTRA_ROWS = 2   // empty rows always shown below content
+
+    function makeSection(type) {
+        return {
+            id: crypto.randomUUID(), type,
+            row: null, col: null, col_span: 1, row_span: 1,
+            config: JSON.parse(JSON.stringify(DEFAULTS[type] || {})),
+        }
+    }
+
+    function normalizeSection(s) {
+        // Migrate legacy col_span / span values
+        if (s.col_span === undefined) s.col_span = (s.span === 1) ? 1 : 3
+        if (s.row_span === undefined) s.row_span = 1
+        delete s.span
+        return s
+    }
+
+    function autoPlaceSections(sects) {
+        // Assign row/col to sections that don't have explicit positions
+        let col = 1, row = 1
+        for (const s of sects) {
+            if (s.row && s.col) continue
+            const span = s.col_span || 1
+            if (col + span - 1 > COLS) { col = 1; row++ }
+            s.row = row; s.col = col
+            col += span
+            if (col > COLS) { col = 1; row += (s.row_span || 1) }
+        }
+        return sects
+    }
+
+    function sectionMeta(type)  { return META[type] || { label: type, icon: 'fa-puzzle-piece' } }
+
+    function sectionSummary(s) {
+        const c = s.config || {}
+        if (s.type === 'page_header') return c.title || 'Untitled'
+        if (s.type === 'data_table')  return c.fetch_url || '⚠ No endpoint'
+        if (s.type === 'cards_grid')  return c.section_title || 'Cards'
+        if (s.type === 'stats')       return `${(c.stats || []).length} stat${(c.stats||[]).length !== 1 ? 's' : ''}`
+        if (s.type === 'text_block')  return (c.content || '').slice(0, 40) || 'Empty'
+        if (s.type === 'comments')    return c.object_type ? `${c.object_type} #${c.object_id || 0}` : 'Configurer...'
+        return ''
+    }
+
+    function sectionSub(s) {
+        const c = s.config || {}
+        if (s.type === 'data_table' && (c.columns || []).length)
+            return `${c.columns.length} col.`
+        if (s.type === 'cards_grid' && c.fetch_url) return c.fetch_url
+        return ''
+    }
+
+    function slugify(text) {
+        return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/^-+|-+$/g, '')
+    }
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        setup() {
+
+            // ── Page meta ──────────────────────────────────────────────────────
+            const saved_uuid       = ref(INIT.uuid || null)
+            const page_name        = ref(INIT.name || '')
+            const page_slug        = ref(INIT.slug || '')
+            const page_description = ref(INIT.description || '')
+            const page_nav_group   = ref(INIT.nav_group || '')
+            const page_nav_label   = ref(INIT.nav_label || '')
+            const page_nav_icon    = ref(INIT.nav_icon || 'fa-file')
+            const page_permission  = ref(INIT.required_permission || '')
+            const is_published     = ref(INIT.is_published || false)
+            const slug_manual      = ref(!!INIT.slug)
+
+            const rawSections = INIT.sections
+                ? JSON.parse(JSON.stringify(INIT.sections)).map(normalizeSection)
+                : []
+            autoPlaceSections(rawSections)
+            const sections = ref(rawSections)
+
+            // ── UI state ───────────────────────────────────────────────────────
+            const selected_id   = ref(null)
+            const selected_ids  = ref([])          // multi-select array
+            const tab           = ref('page')
+            const show_preview  = ref(false)
+            const is_saving     = ref(false)
+            const is_publishing = ref(false)
+
+            // ── Drag state ─────────────────────────────────────────────────────
+            const dragging_type = ref(null)
+            const dragging_id   = ref(null)
+            const hovered_cell  = ref(null)
+
+            // ── Resize state ───────────────────────────────────────────────────
+            const resizing = ref(null)   // { sectionId, startX, startY, origColSpan, origRowSpan, maxColSpan, colWidth, rowHeight, type }
+
+            const is_dragging = computed(() => !!(dragging_type.value || dragging_id.value))
+
+            const selected_section = computed(() =>
+                sections.value.find(s => s.id === selected_id.value) || null
+            )
+
+            // ── Grid layout ────────────────────────────────────────────────────
+            const totalRows = computed(() => {
+                if (!sections.value.length) return 3
+                const maxRow = sections.value.reduce((max, s) =>
+                    Math.max(max, (s.row || 1) + (s.row_span || 1) - 1), 0)
+                return maxRow + MIN_EXTRA_ROWS
+            })
+
+            const gridCells = computed(() => {
+                const cells = []
+                for (let r = 1; r <= totalRows.value; r++)
+                    for (let c = 1; c <= COLS; c++)
+                        cells.push({ id: `${r}-${c}`, row: r, col: c })
+                return cells
+            })
+
+            function isCellOccupied(row, col) {
+                const sid      = dragging_id.value
+                const isGroup  = sid && selected_ids.value.length > 1 && selected_ids.value.includes(sid)
+                const moving   = isGroup ? new Set(selected_ids.value) : (sid ? new Set([sid]) : new Set())
+
+                return sections.value.some(s => {
+                    if (moving.has(s.id)) return false
+                    const r = s.row || 1, c = s.col || 1
+                    return row >= r && row < r + (s.row_span || 1) &&
+                           col >= c && col < c + (s.col_span || 1)
+                })
+            }
+
+            function canDrop(cell) {
+                const sid     = dragging_id.value
+                const dragged = sid ? sections.value.find(s => s.id === sid) : null
+                const cSpan   = dragged?.col_span || 1
+                const rSpan   = dragged?.row_span || 1
+                if (cell.col + cSpan - 1 > COLS) return false
+                for (let r = cell.row; r < cell.row + rSpan; r++)
+                    for (let c = cell.col; c < cell.col + cSpan; c++)
+                        if (isCellOccupied(r, c)) return false
+                return true
+            }
+
+            const hoveredCells = computed(() => {
+                if (!hovered_cell.value || !is_dragging.value) return new Set()
+                const sid     = dragging_id.value
+                const dragged = sid ? sections.value.find(s => s.id === sid) : null
+                const cSpan   = dragged?.col_span || 1
+                const rSpan   = dragged?.row_span || 1
+                const result  = new Set()
+                for (let r = hovered_cell.value.row; r < hovered_cell.value.row + rSpan; r++)
+                    for (let c = hovered_cell.value.col; c < hovered_cell.value.col + cSpan; c++)
+                        if (c <= COLS) result.add(`${r}-${c}`)
+                return result
+            })
+
+            const canDropHovered = computed(() =>
+                hovered_cell.value ? canDrop(hovered_cell.value) : false
+            )
+
+            // ── Section helpers ────────────────────────────────────────────────
+            function selectSection(id, evt) {
+                if (evt && (evt.ctrlKey || evt.metaKey)) {
+                    // Ctrl+click: toggle in multi-selection without opening config
+                    const idx = selected_ids.value.indexOf(id)
+                    if (idx >= 0) selected_ids.value.splice(idx, 1)
+                    else          selected_ids.value.push(id)
+                } else {
+                    selected_ids.value  = [id]
+                    selected_id.value   = id
+                    tab.value           = 'section'
+                }
+            }
+
+            function removeSection(id) {
+                const idx = sections.value.findIndex(s => s.id === id)
+                if (idx >= 0) sections.value.splice(idx, 1)
+                if (selected_id.value === id) { selected_id.value = null; tab.value = 'page' }
+                const si = selected_ids.value.indexOf(id)
+                if (si >= 0) selected_ids.value.splice(si, 1)
+            }
+
+            function resizeCol(section, delta) {
+                const col     = section.col || 1
+                const newSpan = Math.max(1, Math.min(COLS, (section.col_span || 1) + delta))
+                if (col + newSpan - 1 <= COLS) section.col_span = newSpan
+            }
+
+            function resizeRow(section, delta) {
+                section.row_span = Math.max(1, Math.min(3, (section.row_span || 1) + delta))
+            }
+
+            // ── Drag handlers ──────────────────────────────────────────────────
+            function startDragPalette(evt, type) {
+                dragging_type.value = type
+                dragging_id.value   = null
+                evt.dataTransfer.effectAllowed = 'copy'
+                evt.dataTransfer.setData('text/plain', type)
+            }
+
+            function startDragSection(evt, section) {
+                dragging_id.value   = section.id
+                dragging_type.value = null
+                // If section not in current multi-select, reset to single
+                if (!selected_ids.value.includes(section.id)) {
+                    selected_ids.value = [section.id]
+                }
+                evt.dataTransfer.effectAllowed = 'move'
+                evt.dataTransfer.setData('text/plain', section.id)
+            }
+
+            function endDrag() {
+                dragging_type.value = null
+                dragging_id.value   = null
+                hovered_cell.value  = null
+            }
+
+            function onCellDragOver(evt, cell) {
+                hovered_cell.value = cell
+                evt.dataTransfer.dropEffect = canDrop(cell)
+                    ? (dragging_id.value ? 'move' : 'copy')
+                    : 'none'
+            }
+
+            function onCanvasDragLeave(evt) {
+                if (!evt.currentTarget.contains(evt.relatedTarget)) {
+                    hovered_cell.value = null
+                }
+            }
+
+            function dropOnCell(evt, cell) {
+                const type = dragging_type.value
+                const sid  = dragging_id.value
+                dragging_type.value = null
+                dragging_id.value   = null
+                hovered_cell.value  = null
+
+                if (type) {
+                    if (isCellOccupied(cell.row, cell.col)) return
+                    const section = makeSection(type)
+                    section.row = cell.row
+                    section.col = cell.col
+                    sections.value.push(section)
+                    nextTick(() => selectSection(section.id, null))
+                } else if (sid) {
+                    const dragged = sections.value.find(s => s.id === sid)
+                    if (!dragged) return
+
+                    const isGroup = selected_ids.value.length > 1 && selected_ids.value.includes(sid)
+
+                    if (isGroup) {
+                        // Move all selected sections by the same delta
+                        const dr = cell.row - (dragged.row || 1)
+                        const dc = cell.col - (dragged.col || 1)
+                        for (const s of sections.value) {
+                            if (!selected_ids.value.includes(s.id)) continue
+                            s.row = Math.max(1, (s.row || 1) + dr)
+                            const newCol = (s.col || 1) + dc
+                            if (newCol >= 1 && newCol + (s.col_span || 1) - 1 <= COLS)
+                                s.col = newCol
+                        }
+                    } else {
+                        if (!canDrop(cell)) return
+                        dragged.row = cell.row
+                        dragged.col = cell.col
+                    }
+                }
+            }
+
+            // ── Resize via drag handles ────────────────────────────────────────
+            function startResize(evt, section, type) {
+                const canvas   = document.getElementById('ts-canvas-grid')
+                const rect     = canvas.getBoundingClientRect()
+                const gap      = 28   // 1.75rem
+                const colWidth = (rect.width - 2 * gap) / 3
+                const rowHeight = 90 + gap
+
+                resizing.value = {
+                    sectionId:   section.id,
+                    startX:      evt.clientX,
+                    startY:      evt.clientY,
+                    origColSpan: section.col_span || 1,
+                    origRowSpan: section.row_span || 1,
+                    maxColSpan:  COLS - (section.col || 1) + 1,
+                    colWidth,
+                    rowHeight,
+                    type,
+                }
+            }
+
+            function onGlobalMouseMove(evt) {
+                if (!resizing.value) return
+                const { sectionId, startX, startY, origColSpan, origRowSpan, maxColSpan, colWidth, rowHeight, type } = resizing.value
+                const section = sections.value.find(s => s.id === sectionId)
+                if (!section) return
+
+                if (type === 'col' || type === 'corner') {
+                    const delta = Math.round((evt.clientX - startX) / colWidth)
+                    section.col_span = Math.max(1, Math.min(maxColSpan, origColSpan + delta))
+                }
+                if (type === 'row' || type === 'corner') {
+                    const delta = Math.round((evt.clientY - startY) / rowHeight)
+                    section.row_span = Math.max(1, Math.min(3, origRowSpan + delta))
+                }
+            }
+
+            function onGlobalMouseUp() {
+                resizing.value = null
+            }
+
+            onMounted(() => {
+                document.addEventListener('mousemove', onGlobalMouseMove)
+                document.addEventListener('mouseup',  onGlobalMouseUp)
+            })
+            onUnmounted(() => {
+                document.removeEventListener('mousemove', onGlobalMouseMove)
+                document.removeEventListener('mouseup',  onGlobalMouseUp)
+            })
+
+            // ── Slug ───────────────────────────────────────────────────────────
+            function onNameInput() {
+                if (!slug_manual.value) page_slug.value = slugify(page_name.value)
+            }
+
+            // ── Config helpers ─────────────────────────────────────────────────
+            function addBreadcrumb()    { selected_section.value.config.breadcrumb.push({ label: 'Item', href: null }) }
+            function removeBreadcrumb(i){ selected_section.value.config.breadcrumb.splice(i, 1) }
+            function addColumn()        { selected_section.value.config.columns.push({ key: '', label: '', sortable: true, type: '', width: '' }) }
+            function removeColumn(i)    { selected_section.value.config.columns.splice(i, 1) }
+            function addCardField()     { selected_section.value.config.card_fields.push({ key: '', label: '' }) }
+            function removeCardField(i) { selected_section.value.config.card_fields.splice(i, 1) }
+            function addStat()          { selected_section.value.config.stats.push({ label: 'Stat', value: '0', icon: 'fa-chart-bar' }) }
+            function removeStat(i)      { selected_section.value.config.stats.splice(i, 1) }
+
+            // ── Save / publish ─────────────────────────────────────────────────
+            async function savePage() {
+                const name = page_name.value.trim()
+                if (!name) { create_message('Name is required', TOAST.ERROR, true); return }
+                const slug = page_slug.value.trim()
+                if (!slug) { create_message('Slug is required', TOAST.ERROR, true); return }
+
+                is_saving.value = true
+                const res = await apiFetch('/admin/template-studio/save', 'POST', {
+                    uuid:                saved_uuid.value,
+                    name, slug,
+                    description:         page_description.value,
+                    nav_group:           page_nav_group.value || null,
+                    nav_label:           page_nav_label.value || name,
+                    nav_icon:            page_nav_icon.value || 'fa-file',
+                    required_permission: page_permission.value || null,
+                    sections:            sections.value,
+                })
+                const d = await res.json()
+                is_saving.value = false
+
+                if (res.ok) {
+                    create_message(d.message, TOAST.SUCCESS)
+                    if (!saved_uuid.value) {
+                        saved_uuid.value = d.uuid
+                        window.history.replaceState({}, '', `/admin/template-studio/${d.uuid}`)
+                    }
+                } else {
+                    create_message(d.message || 'Save failed', TOAST.ERROR, true)
+                }
+            }
+
+            async function togglePublish() {
+                if (!saved_uuid.value) { create_message('Save the page first', TOAST.WARNING, true); return }
+                is_publishing.value = true
+                const action = is_published.value ? 'unpublish' : 'publish'
+                const res = await apiFetch(`/admin/template-studio/${saved_uuid.value}/${action}`, 'POST')
+                const d   = await res.json()
+                is_publishing.value = false
+                if (res.ok) {
+                    is_published.value = !is_published.value
+                    create_message(d.message, TOAST.SUCCESS)
+                } else {
+                    create_message(d.message || 'Failed', TOAST.ERROR, true)
+                }
+            }
+
+            function openPreview() {
+                if (saved_uuid.value)
+                    window.open(`/admin/template-studio/${saved_uuid.value}/preview`, '_blank')
+            }
+
+            return {
+                COMPONENTS,
+                saved_uuid, page_name, page_slug, page_description,
+                page_nav_group, page_nav_label, page_nav_icon, page_permission,
+                is_published, slug_manual,
+                sections, selected_id, selected_ids, selected_section,
+                tab, show_preview, is_saving, is_publishing,
+                // grid
+                totalRows, gridCells, hoveredCells, canDropHovered, is_dragging,
+                isCellOccupied, canDrop,
+                // drag
+                dragging_type, dragging_id, hovered_cell,
+                startDragPalette, startDragSection, endDrag,
+                onCellDragOver, onCanvasDragLeave, dropOnCell,
+                // resize
+                resizing, startResize,
+                // sections
+                sectionMeta, sectionSummary, sectionSub,
+                selectSection, removeSection, resizeCol, resizeRow,
+                // page
+                onNameInput,
+                addBreadcrumb, removeBreadcrumb,
+                addColumn, removeColumn,
+                addCardField, removeCardField,
+                addStat, removeStat,
+                savePage, togglePublish, openPreview,
+            }
+        }
+    }).mount('#ts-app')
+</script>
+{% endblock %}

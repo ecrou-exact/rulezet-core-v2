@@ -1,0 +1,141 @@
+/*
+  weather-widget.css — Topbar weather + time chip.
+  All colors via CSS vars — works across all themes.
+*/
+
+/*---CHIP---*/
+
+.ww-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: var(--bg-elevated);
+    cursor: pointer;
+    font-size: .68rem;
+    font-family: var(--font-sans);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+    user-select: none;
+    height: 26px;
+
+    /* Hidden until data loads */
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(.92);
+}
+
+.ww-chip.ww-ready {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+    transition: opacity .3s var(--ease), transform .3s var(--ease),
+                background var(--transition), border-color var(--transition);
+}
+
+.ww-chip:hover {
+    background: var(--bg-body);
+    border-color: var(--brand-glow);
+    color: var(--text-main);
+}
+
+.ww-icon { font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; }
+
+.ww-temp {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: .75rem;
+}
+
+.ww-sep {
+    color: var(--border);
+    font-size: .6rem;
+}
+
+.ww-time {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--text-muted);
+    letter-spacing: .02em;
+}
+
+/*---TOOLTIP---*/
+
+.ww-tooltip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 210px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 500;
+    overflow: hidden;
+    animation: ww-appear .14s var(--ease);
+}
+
+.ww-tooltip.ww-open { display: block; }
+
+@keyframes ww-appear {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+.ww-tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.ww-tooltip-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; display: inline-flex; align-items: center; }
+
+.ww-tooltip-city {
+    font-weight: 700;
+    font-size: .82rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ww-tooltip-time-local {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--text-muted);
+}
+
+.ww-tooltip-body {
+    padding: 8px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ww-tooltip-desc {
+    font-size: .75rem;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+}
+
+.ww-tooltip-source {
+    font-size: .62rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 4px;
+}
+
+/*---RESPONSIVE---*/
+
+@media (max-width: 600px) {
+    .ww-temp, .ww-sep { display: none; }
+    .ww-chip { padding: 4px 8px; }
+}

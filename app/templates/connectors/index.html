@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/table/data-table.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/connectors/connectors.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="/admin/">Admin</a></li>
+                        <li class="breadcrumb-item active">Connectors</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Connectors</h1>
+            </div>
+            <div class="page-actions" v-if="can_manage">
+                <button class="btn btn-sm btn-primary" @click="openCreateModal">
+                    <i class="fas fa-plug me-1"></i> New connector
+                </button>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            <!-- Status filter chips -->
+            <div class="connector-filter-bar">
+                <button v-for="f in status_filters" :key="f.key"
+                    class="connector-status-chip"
+                    :class="{ 'is-active': active_status === f.key }"
+                    @click="setStatusFilter(f.key)">
+                    <span v-if="f.key" class="connector-status-dot" :class="'connector-status-dot--' + f.key"></span>
+                    <i v-else class="fas fa-list" style="font-size:.65rem;"></i>
+                    [[ f.label ]]
+                </button>
+            </div>
+
+            <!-- Data table -->
+            <data-table
+                ref="table_ref"
+                :fetch-url="fetch_url"
+                :columns="columns"
+                :can-delete="can_manage"
+                :can-view="false"
+                initial-sort="name"
+                initial-dir="asc"
+                @delete="handleDelete">
+
+                <!-- Name + URL cell -->
+                <template #cell-name="{ item }">
+                    <div class="connector-name-cell">
+                        <span class="connector-status-dot" :class="'connector-status-dot--' + item.status"></span>
+                        <div>
+                            <div class="connector-name-cell-label">[[ item.name ]]</div>
+                            <div class="connector-name-cell-url">[[ item.url ]]</div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Direction cell -->
+                <template #cell-direction="{ item }">
+                    <span class="connector-direction-badge">
+                        <i :class="directionIcon(item.direction)"></i>
+                        [[ item.direction ]]
+                    </span>
+                </template>
+
+                <!-- Status cell -->
+                <template #cell-status="{ item }">
+                    <span class="connector-status-badge" :class="'connector-status-badge--' + item.status">
+                        <span class="connector-status-dot" :class="'connector-status-dot--' + item.status"></span>
+                        [[ item.status ]]
+                    </span>
+                </template>
+
+                <!-- Expand row -->
+                <template #expand="{ item }">
+                    <div class="p-3">
+                        <div class="connector-detail-grid">
+
+                            <!-- Left: details -->
+                            <div>
+                                <div class="mb-3" v-if="item.description">
+                                    <div class="connector-detail-label">Description</div>
+                                    <div class="connector-detail-value">[[ item.description ]]</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="connector-detail-label">Remote URL</div>
+                                    <div class="connector-detail-value">
+                                        <a :href="item.url" target="_blank" rel="noopener" style="font-size:.8rem;">[[ item.url ]]</a>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="connector-detail-label">Direction</div>
+                                    <div class="connector-detail-value">
+                                        <span class="connector-direction-badge">
+                                            <i :class="directionIcon(item.direction)"></i> [[ item.direction ]]
+                                        </span>
+                                        <span style="font-size:.72rem;color:var(--text-muted);margin-left:.5rem;">[[ directionHint(item.direction) ]]</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="connector-detail-label">Outgoing API key</div>
+                                    <div class="connector-detail-value" style="font-size:.75rem;">
+                                        <span v-if="item.has_outgoing_key"><i class="fas fa-check-circle text-success me-1"></i>Configured</span>
+                                        <span v-else class="text-warning"><i class="fas fa-triangle-exclamation me-1"></i>Not set</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="connector-detail-label">Last check</div>
+                                    <div class="connector-detail-value">[[ item.last_check_at ? new Date(item.last_check_at).toLocaleString() : '—' ]]</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="connector-detail-label">Last sync</div>
+                                    <div class="connector-detail-value">[[ item.last_sync_at ? new Date(item.last_sync_at).toLocaleString() : '—' ]]</div>
+                                </div>
+                            </div>
+
+                            <!-- Right: incoming key + actions -->
+                            <div>
+                                <!-- Incoming key section -->
+                                <div class="mb-3" v-if="item.direction !== 'pull'">
+                                    <div class="connector-detail-label">
+                                        <i class="fas fa-key me-1"></i> Your incoming key
+                                    </div>
+                                    <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:.35rem;">
+                                        Share this with the remote instance so it can push data to you.
+                                    </div>
+                                    <div class="connector-key-box">
+                                        <span class="connector-key-value">[[ item.incoming_key ]]</span>
+                                        <button class="connector-key-copy" @click="copyKey(item.incoming_key)">
+                                            <i class="fas fa-copy me-1"></i>Copy
+                                        </button>
+                                    </div>
+                                    <div class="connector-endpoint-hint">
+                                        POST {{ request.host_url }}api/connectors/push/[[ item.incoming_key ]]
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="connector-detail-label mb-2" v-if="can_manage">Actions</div>
+                                <div class="d-flex flex-wrap gap-2" v-if="can_manage">
+                                    <button v-if="item.direction !== 'push' && item.has_outgoing_key"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        @click="runTest(item)">
+                                        <i class="fas fa-satellite-dish me-1"></i> Test connection
+                                    </button>
+                                    <button v-if="item.direction !== 'push' && item.has_outgoing_key"
+                                        class="btn btn-sm btn-outline-primary"
+                                        @click="runSync(item)">
+                                        <i class="fas fa-rotate me-1"></i> Sync now
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                        @click="openEditModal(item)">
+                                        <i class="fas fa-pen me-1"></i> Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </data-table>
+
+        </div>
+    </div>
+
+    <!-- Create / Edit modal -->
+    <div v-if="modal_open"
+        class="modal-backdrop"
+        style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;display:flex;align-items:center;justify-content:center;"
+        @click.self="modal_open = false">
+        <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto;">
+            <h5 style="margin:0 0 1.25rem;font-size:.95rem;font-weight:700;">
+                [[ editing ? 'Edit connector' : 'New connector' ]]
+            </h5>
+
+            <div class="mb-3">
+                <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem;">Name <span class="text-danger">*</span></label>
+                <input v-model="form.name" class="form-control form-control-sm" placeholder="My MISP Instance" />
+            </div>
+
+            <div class="mb-3">
+                <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem;">Description</label>
+                <textarea v-model="form.description" class="form-control form-control-sm" rows="2" style="resize:vertical;"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem;">Remote URL <span class="text-danger">*</span></label>
+                <input v-model="form.url" class="form-control form-control-sm" placeholder="https://other-instance.example.com" />
+                <div style="font-size:.68rem;color:var(--text-muted);margin-top:.2rem;">Base URL of the remote instance (no trailing slash).</div>
+            </div>
+
+            <div class="mb-3">
+                <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem;">Outgoing API key</label>
+                <input v-model="form.outgoing_key" class="form-control form-control-sm"
+                    :placeholder="editing ? '(unchanged — enter new key to update)' : 'API key of a user on the remote instance'" />
+                <div style="font-size:.68rem;color:var(--text-muted);margin-top:.2rem;">Used when we call the remote. Required for <em>pull</em> and <em>bidirectional</em>.</div>
+            </div>
+
+            <div class="mb-3">
+                <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem;">Direction <span class="text-danger">*</span></label>
+                <select v-model="form.direction" class="form-select form-select-sm">
+                    <option value="pull">Pull — we fetch from remote</option>
+                    <option value="push">Push — remote pushes to us</option>
+                    <option value="bidirectional">Bidirectional — both</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" v-model="form.sync_tags" id="chk-sync-tags" />
+                    <label class="form-check-label" for="chk-sync-tags" style="font-size:.8rem;">Sync tags</label>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button class="btn btn-sm btn-outline-secondary" @click="modal_open = false">Cancel</button>
+                <button class="btn btn-sm btn-primary" @click="saveConnector" :disabled="saving">
+                    [[ saving ? 'Saving…' : (editing ? 'Save changes' : 'Create connector') ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+    import { apiFetch, TOAST } from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import DataTable  from '/static/js/components/table/data-table.js'
+
+    const can_manage = hasPerm('connectors.manage')
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, DataTable },
+
+        setup() {
+            const page_is_loading = ref(false)
+            const table_ref       = ref(null)
+            const active_status   = ref('')
+
+            const modal_open = ref(false)
+            const saving     = ref(false)
+            const editing    = ref(null)
+            const form = ref({ name: '', description: '', url: '', outgoing_key: '', direction: 'pull', sync_tags: true })
+
+            const status_filters = [
+                { key: '',        label: 'All' },
+                { key: 'online',  label: 'Online'  },
+                { key: 'offline', label: 'Offline' },
+                { key: 'error',   label: 'Error'   },
+                { key: 'unknown', label: 'Unknown' },
+            ]
+
+            const columns = [
+                { key: 'name',         label: 'Connector',      sortable: true  },
+                { key: 'direction',    label: 'Direction',      sortable: true,  width: '140px' },
+                { key: 'status',       label: 'Status',         sortable: true,  width: '120px' },
+                { key: 'last_sync_at', label: 'Last sync',      sortable: true,  type: 'date', width: '130px' },
+            ]
+
+            const fetch_url = computed(() => {
+                const params = new URLSearchParams()
+                if (active_status.value) params.set('status', active_status.value)
+                const qs = params.toString()
+                return `/api/connectors/${qs ? '?' + qs : ''}`
+            })
+
+            onMounted(() => { page_is_loading.value = true })
+
+            function setStatusFilter(key) {
+                active_status.value = key
+                setTimeout(() => table_ref.value?.fetchData(), 0)
+            }
+
+            function directionIcon(d) {
+                return { pull: 'fas fa-arrow-down', push: 'fas fa-arrow-up', bidirectional: 'fas fa-arrows-up-down' }[d] || 'fas fa-arrows-up-down'
+            }
+
+            function directionHint(d) {
+                return {
+                    pull:          'We pull data from remote.',
+                    push:          'Remote pushes data to us.',
+                    bidirectional: 'We pull + remote can push.',
+                }[d] || ''
+            }
+
+            function openCreateModal() {
+                editing.value = null
+                form.value = { name: '', description: '', url: '', outgoing_key: '', direction: 'pull', sync_tags: true }
+                modal_open.value = true
+            }
+
+            function openEditModal(item) {
+                editing.value = item
+                form.value = {
+                    name:         item.name,
+                    description:  item.description || '',
+                    url:          item.url,
+                    outgoing_key: '',
+                    direction:    item.direction,
+                    sync_tags:    item.sync_tags,
+                }
+                modal_open.value = true
+            }
+
+            async function saveConnector() {
+                if (!form.value.name.trim()) { create_message('Name is required.', TOAST.ERROR); return }
+                if (!form.value.url.trim())  { create_message('Remote URL is required.', TOAST.ERROR); return }
+                saving.value = true
+                const payload = { ...form.value }
+                if (editing.value && !payload.outgoing_key) delete payload.outgoing_key
+
+                const url    = editing.value ? `/api/connectors/${editing.value.uuid}` : '/api/connectors/'
+                const method = editing.value ? 'PUT' : 'POST'
+                const res    = await apiFetch(url, method, payload)
+                saving.value = false
+                if (res.ok) {
+                    modal_open.value = false
+                    create_message(editing.value ? 'Connector updated.' : 'Connector created.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Save failed.', TOAST.ERROR, true)
+                }
+            }
+
+            async function handleDelete(item) {
+                if (!confirm(`Delete connector "${item.name}"?`)) return
+                const res = await apiFetch(`/api/connectors/${item.uuid}`, 'DELETE')
+                if (res.ok) {
+                    create_message('Connector deleted.', TOAST.SUCCESS)
+                    table_ref.value?.fetchData()
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Delete failed.', TOAST.ERROR, true)
+                }
+            }
+
+            async function runTest(item) {
+                const res = await apiFetch(`/api/connectors/${item.uuid}/test`, 'POST')
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message('Test started.', TOAST.SUCCESS, true, { href: `/jobs/${d.job_uuid}`, label: 'View job →', target: '_blank' })
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Test failed.', TOAST.ERROR, true)
+                }
+            }
+
+            async function runSync(item) {
+                const res = await apiFetch(`/api/connectors/${item.uuid}/sync`, 'POST')
+                if (res.ok) {
+                    const d = await res.json()
+                    create_message('Sync started.', TOAST.SUCCESS, true, { href: `/jobs/${d.job_uuid}`, label: 'View job →', target: '_blank' })
+                } else {
+                    const d = await res.json()
+                    create_message(d.message || 'Sync failed.', TOAST.ERROR, true)
+                }
+            }
+
+            async function copyKey(key) {
+                try {
+                    await navigator.clipboard.writeText(key)
+                    create_message('Key copied to clipboard.', TOAST.SUCCESS)
+                } catch {
+                    create_message('Could not copy — please copy manually.', TOAST.WARNING)
+                }
+            }
+
+            return {
+                message_list, page_is_loading, table_ref,
+                can_manage, active_status, status_filters, fetch_url, columns,
+                modal_open, saving, editing, form,
+                setStatusFilter, directionIcon, directionHint,
+                openCreateModal, openEditModal, saveConnector,
+                handleDelete, runTest, runSync, copyKey,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

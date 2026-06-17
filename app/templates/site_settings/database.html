@@ -1,0 +1,788 @@
+{% extends 'base.html' %}
+{% block page_title %}Database{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site_settings/site_settings.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site_settings/database.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/timeline.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/ansi-terminal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!ready"></loading-bar>
+
+    <div v-if="ready">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Database</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Settings</h1>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-sm btn-outline-secondary" @click="refresh_all" :disabled="loading">
+                    <i class="fas fa-rotate-right" :class="{ 'fa-spin': loading }"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="row g-3">
+
+                <!-- ── Left column ── -->
+                <div class="col-12 col-xl-7">
+
+                    <!-- DB Overview -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3" >
+                                <div class="ss-card-icon"><i class="fas fa-database"></i></div>
+                                <div>
+                                    <h6 class="ss-card-title">Database Overview</h6>
+                                    <p class="ss-card-sub">Current state, size, and table stats.</p>
+                                </div>
+                                <div class="ms-auto">
+                                    <span v-if="db_info.db_type" class="db-type-badge">
+                                        <i class="fas fa-circle-check" style="color:var(--brand)"></i>
+                                        [[ db_info.db_type ]]
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="db_info.db_type" class="db-stat-grid">
+                                <div class="db-stat-card">
+                                    <div class="db-stat-label">Size</div>
+                                    <div class="db-stat-value">[[ db_info.size_human ]]</div>
+                                </div>
+                                <div class="db-stat-card">
+                                    <div class="db-stat-label">Tables</div>
+                                    <div class="db-stat-value">[[ db_info.table_count ]]</div>
+                                </div>
+                                <div class="db-stat-card">
+                                    <div class="db-stat-label">Backups</div>
+                                    <div class="db-stat-value">[[ db_info.backup_count ]]</div>
+                                </div>
+                            </div>
+
+                            <div v-if="db_info.db_path" class="db-stat-sub mb-3" style="font-size:.72rem;color:var(--text-muted);">
+                                <i class="fas fa-file-circle-info me-1"></i> [[ db_info.db_path ]]
+                            </div>
+
+                            <!-- Table list -->
+                            <div v-if="db_info.tables && db_info.tables.length">
+                                <div style="font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">Tables</div>
+                                <div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+                                    <table class="db-table-list">
+                                        <thead>
+                                            <tr>
+                                                <th>Table</th>
+                                                <th>Rows</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="t in db_info.tables" :key="t.name">
+                                                <td>[[ t.name ]]</td>
+                                                <td>[[ t.rows >= 0 ? t.rows.toLocaleString() : '—' ]]</td>
+                                                <td>
+                                                    <span v-if="t.rows > 0"
+                                                          class="db-row-bar"
+                                                          :style="{ width: Math.min(t.rows / max_rows * 80, 80) + 'px' }">
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div v-else class="db-empty"><i class="fas fa-table"></i> No table data</div>
+                        </div>
+                    </div>
+
+                    <!-- SQL Console -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon"><i class="fas fa-terminal"></i></div>
+                                <div>
+                                    <h6 class="ss-card-title">SQL Console</h6>
+                                    <p class="ss-card-sub">Execute queries against the live database.</p>
+                                </div>
+                            </div>
+
+                            <div class="db-sql-warn">
+                                <i class="fas fa-triangle-exclamation"></i>
+                                <span>
+                                    All queries are <strong>logged and audited</strong>.
+                                    <strong>DELETE / DROP / TRUNCATE / UPDATE</strong> trigger an <strong>automatic backup</strong> before execution — you can restore it instantly if needed.
+                                    Results capped at 500 rows.
+                                </span>
+                            </div>
+
+                            <textarea
+                                v-model="sql_query"
+                                class="db-sql-textarea"
+                                placeholder="SELECT * FROM user LIMIT 10;"
+                                spellcheck="false"
+                                @keydown.ctrl.enter.prevent="run_sql"
+                                @keydown.meta.enter.prevent="run_sql">
+                            </textarea>
+
+                            <div class="db-sql-controls">
+                                <button class="db-btn db-btn--primary" @click="run_sql" :disabled="sql_running || !sql_query.trim()">
+                                    <i class="fas fa-play" v-if="!sql_running"></i>
+                                    <i class="fas fa-spinner fa-spin" v-else></i>
+                                    Execute <kbd style="font-size:.65rem;opacity:.7;margin-left:2px;">Ctrl+↵</kbd>
+                                </button>
+                                <button class="db-btn" @click="sql_query = ''; sql_result = null; sql_error = null; sql_terminal_log.length = 0">
+                                    <i class="fas fa-xmark"></i> Clear
+                                </button>
+                                <span v-if="sql_result" style="font-size:.72rem;color:var(--text-muted);margin-left:auto;">
+                                    [[ sql_result.count ]] [[ sql_result.is_read ? 'row(s) returned' : 'row(s) affected' ]]
+                                </span>
+                            </div>
+
+                            <!-- Destructive query pre-warning -->
+                            <div v-if="sql_is_destructive" class="db-sql-dml-warn">
+                                <i class="fas fa-shield-halved"></i>
+                                Destructive query — a backup will be created automatically before execution.
+                            </div>
+                            <div v-else-if="sql_is_dml" class="db-sql-dml-warn" style="color:var(--text-muted);border-color:var(--border);">
+                                <i class="fas fa-pen" style="color:var(--text-muted)"></i>
+                                Write operation — changes committed immediately.
+                            </div>
+
+                            <!-- Undo banner -->
+                            <div v-if="sql_result && sql_result.backup_before" class="db-sql-undo-banner">
+                                <i class="fas fa-shield-check"></i>
+                                <span>
+                                    Auto-backup created before this query:
+                                    <code>[[ sql_result.backup_before ]]</code>
+                                </span>
+                                <button class="db-btn db-btn--warning db-btn--sm"
+                                        @click="initiate_action('restore', sql_result.backup_before)">
+                                    <i class="fas fa-rotate-left"></i> Undo (restore this backup)
+                                </button>
+                            </div>
+
+                            <!-- Terminal output -->
+                            <ansi-terminal
+                                v-if="sql_terminal_log.length > 0"
+                                :entries="sql_terminal_log"
+                                title="SQL Output"
+                                :live="false"
+                                class="mt-3"
+                                @clear="sql_terminal_log.length = 0">
+                            </ansi-terminal>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ── Right column ── -->
+                <div class="col-12 col-xl-5">
+
+                    <!-- Backups -->
+                    <div class="card mb-3" id="backup-section">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon"><i class="fas fa-box-archive"></i></div>
+                                <div>
+                                    <h6 class="ss-card-title">Backups</h6>
+                                    <p class="ss-card-sub">Create, download, or restore a snapshot.</p>
+                                </div>
+                                <div class="ms-auto">
+                                    <button class="db-btn db-btn--primary" @click="create_backup" :disabled="backup_creating">
+                                        <i class="fas fa-plus" v-if="!backup_creating"></i>
+                                        <i class="fas fa-spinner fa-spin" v-else></i>
+                                        Backup Now
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="backups.length === 0" class="db-empty">
+                                <i class="fas fa-box-open"></i> No backups yet
+                            </div>
+
+                            <div v-else class="db-backup-list">
+                                <div
+                                    v-for="b in backups"
+                                    :key="b.filename"
+                                    class="db-backup-item"
+                                    :class="{ 'is-restoring': pending && pending.filename === b.filename }">
+
+                                    <i class="fas fa-file-zipper db-backup-icon"></i>
+                                    <div class="db-backup-info">
+                                        <div class="db-backup-name">
+                                            <span v-if="renaming !== b.filename"
+                                                  class="db-backup-name-text"
+                                                  @click="start_rename(b.filename)"
+                                                  title="Click to rename">
+                                                [[ b.filename ]]
+                                                <i class="fas fa-pen db-rename-hint"></i>
+                                            </span>
+                                            <span v-else class="db-rename-input-wrap">
+                                                <input
+                                                    class="db-rename-input"
+                                                    v-model="rename_value"
+                                                    @keydown.enter.prevent="save_rename(b.filename)"
+                                                    @keydown.escape.prevent="cancel_rename"
+                                                    @blur="save_rename(b.filename)"
+                                                    :ref="el => { if (el) el.focus() }"
+                                                    spellcheck="false">
+                                            </span>
+                                        </div>
+                                        <div class="db-backup-meta">[[ b.size_human ]] · [[ fmt_date(b.created_at) ]]</div>
+                                    </div>
+                                    <div class="db-backup-actions">
+                                        <button class="db-btn"
+                                                @click="initiate_action('download', b.filename)"
+                                                :disabled="pending && pending.filename === b.filename"
+                                                title="Download">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                        <button class="db-btn db-btn--warning"
+                                                @click="initiate_action('restore', b.filename)"
+                                                :disabled="pending && pending.filename === b.filename"
+                                                title="Restore">
+                                            <i class="fas fa-rotate-left"></i>
+                                        </button>
+                                        <button class="db-btn db-btn--danger"
+                                                @click="initiate_action('delete', b.filename)"
+                                                :disabled="pending && pending.filename === b.filename"
+                                                title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Unified confirmation box -->
+                            <div v-if="pending" class="db-restore-confirm mt-3">
+                                <div class="db-restore-confirm-title" :style="{ color: action_color }">
+                                    <i :class="action_icon"></i>
+                                    [[ action_label ]] — [[ pending.filename ]]
+                                </div>
+                                <p style="font-size:.78rem;color:var(--text-secondary);margin-bottom:.6rem;">
+                                    A 6-digit code has been sent to the superadmin. Enter it below to confirm.
+                                    <span v-if="pending.action === 'restore'">
+                                        This will <strong>replace the current database</strong> and is irreversible.
+                                    </span>
+                                    <span v-else-if="pending.action === 'delete'">
+                                        This will <strong>permanently delete</strong> the backup file.
+                                    </span>
+                                    <span v-else>
+                                        The backup file will be downloaded after confirmation.
+                                    </span>
+                                </p>
+                                <div class="db-restore-code-input">
+                                    <input
+                                        v-model="action_code"
+                                        type="text"
+                                        maxlength="6"
+                                        placeholder="000000"
+                                        @keydown.enter="confirm_action">
+                                    <button class="db-btn" :class="action_btn_class" @click="confirm_action" :disabled="action_confirming">
+                                        <i class="fas fa-check" v-if="!action_confirming"></i>
+                                        <i class="fas fa-spinner fa-spin" v-else></i>
+                                        Confirm
+                                    </button>
+                                    <button class="db-btn" @click="cancel_action">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Migrations -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon"><i class="fas fa-code-branch"></i></div>
+                                <div>
+                                    <h6 class="ss-card-title">Migrations</h6>
+                                    <p class="ss-card-sub">Schema version history — upgrade or downgrade.</p>
+                                </div>
+                                <div class="ms-auto d-flex gap-2 align-items-center">
+                                    <span v-if="migrations.pending_count > 0" class="badge" style="background:var(--brand);font-size:.7rem;">
+                                        [[ migrations.pending_count ]] pending
+                                    </span>
+                                    <button v-if="migrations.pending_count > 0"
+                                            class="db-btn db-btn--primary"
+                                            @click="run_upgrade"
+                                            :disabled="migration_running">
+                                        <i class="fas fa-arrow-up" v-if="!migration_running"></i>
+                                        <i class="fas fa-spinner fa-spin" v-else></i>
+                                        Upgrade
+                                    </button>
+                                    <span v-else-if="migrations.revisions" style="font-size:.72rem;color:#22c55e;">
+                                        <i class="fas fa-circle-check"></i> Up to date
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="!migrations.revisions" class="db-empty">
+                                <i class="fas fa-code-branch"></i> Loading…
+                            </div>
+                            <div v-else style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+                                <table class="db-table-list">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:20px;"></th>
+                                            <th>Revision</th>
+                                            <th>Description</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="rev in migrations.revisions" :key="rev.revision"
+                                            :class="migrations.current_heads.includes(rev.revision) ? 'db-migration-current' : ''">
+                                            <td>
+                                                <span v-if="migrations.current_heads.includes(rev.revision)"
+                                                      title="Current HEAD"
+                                                      style="color:var(--brand);font-size:.8rem;">
+                                                    <i class="fas fa-location-dot"></i>
+                                                </span>
+                                                <span v-else-if="rev.applied" style="color:#22c55e;font-size:.75rem;">
+                                                    <i class="fas fa-check"></i>
+                                                </span>
+                                                <span v-else style="color:var(--text-muted);font-size:.75rem;">
+                                                    <i class="fas fa-clock"></i>
+                                                </span>
+                                            </td>
+                                            <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--text-muted);">
+                                                [[ rev.revision.slice(0, 8) ]]
+                                            </td>
+                                            <td style="font-size:.78rem;color:var(--text-main);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                [[ rev.description || '—' ]]
+                                            </td>
+                                            <td style="text-align:right;">
+                                                <button v-if="rev.applied && !migrations.current_heads.includes(rev.revision)"
+                                                        class="db-btn db-btn--sm"
+                                                        style="color:#f59e0b;border-color:rgba(245,158,11,.3);"
+                                                        @click="run_downgrade(rev.revision)"
+                                                        title="Downgrade to this revision"
+                                                        :disabled="migration_running">
+                                                    <i class="fas fa-arrow-down"></i>
+                                                </button>
+                                                <button v-else-if="migrations.current_heads.includes(rev.revision)"
+                                                        class="db-btn db-btn--sm"
+                                                        style="color:#f59e0b;border-color:rgba(245,158,11,.3);"
+                                                        @click="run_downgrade('-1')"
+                                                        title="Downgrade one step back"
+                                                        :disabled="migration_running">
+                                                    <i class="fas fa-arrow-down"></i> −1
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Job link after upgrade/downgrade -->
+                            <div v-if="migration_job_uuid" class="mt-2" style="font-size:.78rem;color:var(--text-muted);">
+                                <i class="fas fa-gears"></i>
+                                Migration running —
+                                <a :href="'/jobs/' + migration_job_uuid" target="_blank" style="color:var(--brand);">
+                                    View job progress
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event History -->
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="ss-card-header mb-3">
+                                <div class="ss-card-icon"><i class="fas fa-clock-rotate-left"></i></div>
+                                <div>
+                                    <h6 class="ss-card-title">Event History</h6>
+                                    <p class="ss-card-sub">All database operations — last 100 events.</p>
+                                </div>
+                            </div>
+
+                            <div v-if="history.length === 0" class="db-empty">
+                                <i class="fas fa-scroll"></i> No events yet
+                            </div>
+
+                            <div v-else style="max-height:480px;overflow-y:auto;">
+                                <timeline
+                                    :items="history_tl"
+                                    :loading="!ready"
+                                    :group-by-day="true">
+                                </timeline>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+const { createApp, ref, computed, onMounted } = Vue
+import { message_list } from '/static/js/toaster.js'
+import { create_message } from '/static/js/toaster.js'
+import { TOAST, apiFetch } from '/static/js/constants.js'
+import LoadingBar    from '/static/js/components/loading-bar.js'
+import Timeline      from '/static/js/components/timeline.js'
+import AnsiTerminal  from '/static/js/components/ansi-terminal.js'
+
+const ACTION_META = {
+    restore:  { label: 'Confirm Restore',   icon: 'fas fa-triangle-exclamation', color: '#f59e0b', btn: 'db-btn--danger' },
+    delete:   { label: 'Confirm Delete',    icon: 'fas fa-trash',                color: '#ef4444', btn: 'db-btn--danger' },
+    download: { label: 'Confirm Download',  icon: 'fas fa-download',             color: '#3b82f6', btn: 'db-btn--primary' },
+}
+
+createApp({
+    delimiters: ['[[', ']]'],
+    components: { LoadingBar, Timeline, AnsiTerminal },
+
+    setup() {
+        const ready   = ref(false)
+        const loading = ref(false)
+
+        // ── DB info ──────────────────────────────────────────
+        const db_info = ref({})
+
+        async function load_db_info() {
+            const res = await apiFetch('/api/database/info')
+            if (res.ok) db_info.value = await res.json()
+        }
+
+        const max_rows = computed(() => {
+            const tables = db_info.value.tables || []
+            return Math.max(1, ...tables.map(t => t.rows || 0))
+        })
+
+        // ── Backups ──────────────────────────────────────────
+        const backups         = ref([])
+        const backup_creating = ref(false)
+
+        // Inline rename state
+        const renaming     = ref(null)   // filename being renamed
+        const rename_value = ref('')
+        let   _rename_saving = false     // guard against double-save on blur+enter
+
+        function start_rename(filename) {
+            renaming.value     = filename
+            rename_value.value = filename.replace(/\.db$/, '')
+            _rename_saving     = false
+        }
+
+        function cancel_rename() {
+            renaming.value = null
+        }
+
+        async function save_rename(old_filename) {
+            if (_rename_saving || renaming.value !== old_filename) return
+            _rename_saving = true
+
+            const new_val = rename_value.value.trim()
+            renaming.value = null
+
+            if (!new_val || new_val + '.db' === old_filename || new_val === old_filename) {
+                _rename_saving = false
+                return
+            }
+
+            const res = await apiFetch(`/api/database/backups/${old_filename}/rename`, 'PUT', { new_filename: new_val })
+            const d   = await res.json()
+            if (res.ok) {
+                create_message(d.message, TOAST.SUCCESS)
+                await load_backups()
+            } else {
+                create_message(d.message, TOAST.ERROR)
+            }
+            _rename_saving = false
+        }
+
+        // Pending action state (shared for restore / delete / download)
+        const pending          = ref(null)   // { action, filename }
+        const action_code      = ref('')
+        const action_confirming = ref(false)
+
+        const action_label    = computed(() => pending.value ? (ACTION_META[pending.value.action]?.label    ?? '') : '')
+        const action_icon     = computed(() => pending.value ? (ACTION_META[pending.value.action]?.icon     ?? '') : '')
+        const action_color    = computed(() => pending.value ? (ACTION_META[pending.value.action]?.color    ?? '') : '')
+        const action_btn_class = computed(() => pending.value ? (ACTION_META[pending.value.action]?.btn     ?? '') : '')
+
+        async function load_backups() {
+            const res = await apiFetch('/api/database/backups')
+            if (res.ok) backups.value = await res.json()
+        }
+
+        async function create_backup() {
+            backup_creating.value = true
+            const res = await apiFetch('/api/database/backups', 'POST')
+            const d   = await res.json()
+            if (res.ok) {
+                create_message(d.message, TOAST.SUCCESS)
+                await load_backups()
+                await load_db_info()
+            } else {
+                create_message(d.message, TOAST.ERROR)
+            }
+            backup_creating.value = false
+        }
+
+        async function initiate_action(action, filename) {
+            const url_map = {
+                restore:  '/api/database/restore/initiate',
+                delete:   `/api/database/backups/${filename}/delete/initiate`,
+                download: `/api/database/backups/${filename}/download/initiate`,
+            }
+            const res = await apiFetch(url_map[action], 'POST', { filename })
+            const d   = await res.json()
+            if (res.ok) {
+                pending.value     = { action, filename }
+                action_code.value = ''
+                create_message(d.message, TOAST.WARNING, true)
+                document.getElementById('backup-section')?.scrollIntoView({ behavior: 'smooth' })
+            } else {
+                create_message(d.message, TOAST.ERROR)
+            }
+        }
+
+        async function confirm_action() {
+            if (!action_code.value.trim()) {
+                create_message('Enter the 6-digit code', TOAST.WARNING)
+                return
+            }
+            action_confirming.value = true
+            const { action, filename } = pending.value
+            const code = action_code.value.trim()
+
+            let res, d
+            if (action === 'restore') {
+                res = await apiFetch('/api/database/restore/confirm', 'POST', { filename, code })
+                d   = await res.json()
+            } else if (action === 'delete') {
+                res = await apiFetch(`/api/database/backups/${filename}/delete/confirm`, 'POST', { code })
+                d   = await res.json()
+            } else if (action === 'download') {
+                res = await apiFetch(`/api/database/backups/${filename}/download/confirm`, 'POST', { code })
+                if (res.ok) {
+                    // Stream the binary response as a file download
+                    const blob = await res.blob()
+                    const url  = URL.createObjectURL(blob)
+                    const a    = document.createElement('a')
+                    a.href     = url
+                    a.download = filename
+                    a.click()
+                    URL.revokeObjectURL(url)
+                    create_message(`${filename} downloaded`, TOAST.SUCCESS)
+                    pending.value = null
+                    action_code.value = ''
+                    action_confirming.value = false
+                    await load_history()
+                    return
+                } else {
+                    d = await res.json()
+                }
+            }
+
+            if (res.ok) {
+                create_message(d.message, TOAST.SUCCESS, action === 'restore')
+                pending.value     = null
+                action_code.value = ''
+                await refresh_all()
+            } else {
+                create_message(d.message, TOAST.ERROR)
+            }
+            action_confirming.value = false
+        }
+
+        function cancel_action() {
+            pending.value     = null
+            action_code.value = ''
+        }
+
+        // ── SQL Console ──────────────────────────────────────
+        const sql_query        = ref('')
+        const sql_running      = ref(false)
+        const sql_result       = ref(null)
+        const sql_error        = ref(null)
+        const sql_terminal_log = ref([])
+
+        const DESTRUCTIVE_RE = /^(DELETE|DROP|TRUNCATE|UPDATE)\b/i
+        const DML_RE         = /^(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|REPLACE)\b/i
+
+        const sql_is_destructive = computed(() => DESTRUCTIVE_RE.test(sql_query.value.trim()))
+        const sql_is_dml         = computed(() => DML_RE.test(sql_query.value.trim()) && !sql_is_destructive.value)
+
+        function _sql_log(msg, level = 'info') {
+            sql_terminal_log.value.push({ ts: new Date().toISOString(), msg, level })
+        }
+
+        async function run_sql() {
+            if (!sql_query.value.trim() || sql_running.value) return
+            sql_running.value = true
+            sql_result.value  = null
+            sql_error.value   = null
+
+            const query_preview = sql_query.value.trim().replace(/\s+/g, ' ').slice(0, 200)
+            _sql_log('> ' + query_preview, 'info')
+
+            const t0  = Date.now()
+            const res = await apiFetch('/api/database/sql', 'POST', { query: sql_query.value })
+            const d   = await res.json()
+            const ms  = Date.now() - t0
+
+            if (res.ok) {
+                sql_result.value = d
+                if (d.is_read && d.columns && d.columns.length > 0) {
+                    // Print results as text table
+                    const cols = d.columns
+                    const rows = d.rows || []
+                    const widths = cols.map((c, i) =>
+                        Math.max(String(c).length, ...rows.map(r => String(r[i] ?? 'NULL').length))
+                    )
+                    const sep  = widths.map(w => '─'.repeat(w)).join('─┼─')
+                    const head = cols.map((c, i) => String(c).padEnd(widths[i])).join(' │ ')
+                    _sql_log(head, 'info')
+                    _sql_log(sep,  'info')
+                    for (const row of rows.slice(0, 200)) {
+                        _sql_log(row.map((c, i) => String(c ?? 'NULL').padEnd(widths[i])).join(' │ '), 'info')
+                    }
+                    if (rows.length > 200) _sql_log(`… ${rows.length - 200} more rows not shown`, 'warning')
+                    _sql_log(`✓ ${d.count} row(s) returned in ${ms}ms`, 'success')
+                } else if (!d.is_read) {
+                    _sql_log(`✓ ${d.count} row(s) affected in ${ms}ms`, 'success')
+                } else {
+                    _sql_log('(empty result set)', 'info')
+                }
+                if (!d.is_read) await refresh_all()
+                if (d.backup_before) {
+                    _sql_log(`⚑ Auto-backup created: ${d.backup_before}`, 'warning')
+                    create_message(
+                        `Auto-backup created before destructive query: ${d.backup_before}`,
+                        TOAST.WARNING, true
+                    )
+                }
+            } else {
+                sql_error.value = d.message
+                _sql_log(`✗ ${d.message}`, 'error')
+            }
+            sql_running.value = false
+        }
+
+        // ── Migrations ───────────────────────────────────────
+        const migrations        = ref({})
+        const migration_running = ref(false)
+        const migration_job_uuid = ref(null)
+
+        async function load_migrations() {
+            const res = await apiFetch('/api/database/migrations')
+            if (res.ok) migrations.value = await res.json()
+        }
+
+        async function run_upgrade() {
+            if (!confirm('Run database upgrade to head?\n\nAll pending migrations will be applied. Restart the server after completion.')) return
+            migration_running.value  = true
+            migration_job_uuid.value = null
+            const res = await apiFetch('/api/database/migrations/upgrade', 'POST')
+            const d   = await res.json()
+            if (res.ok) {
+                migration_job_uuid.value = d.job_uuid
+                create_message(d.message + ' — see job for progress', TOAST.WARNING, true)
+                setTimeout(() => { load_migrations(); load_history(); migration_running.value = false }, 3000)
+            } else {
+                create_message(d.message, TOAST.ERROR)
+                migration_running.value = false
+            }
+        }
+
+        async function run_downgrade(revision) {
+            const label = revision === '-1' ? 'one step back' : `to revision ${revision}`
+            if (!confirm(`Downgrade database ${label}?\n\nThis may remove columns or tables. Create a backup first. Restart the server after completion.`)) return
+            migration_running.value  = true
+            migration_job_uuid.value = null
+            const res = await apiFetch('/api/database/migrations/downgrade', 'POST', { revision })
+            const d   = await res.json()
+            if (res.ok) {
+                migration_job_uuid.value = d.job_uuid
+                create_message(d.message + ' — see job for progress', TOAST.WARNING, true)
+                setTimeout(() => { load_migrations(); load_history(); migration_running.value = false }, 3000)
+            } else {
+                create_message(d.message, TOAST.ERROR)
+                migration_running.value = false
+            }
+        }
+
+        // ── History ──────────────────────────────────────────
+        const history = ref([])
+
+        async function load_history() {
+            const res = await apiFetch('/api/database/history')
+            if (res.ok) history.value = await res.json()
+        }
+
+        const history_tl = computed(() =>
+            history.value.map(e => ({
+                uuid:        'h' + e.id,
+                title:       e.title,
+                level:       e.level  || 'info',
+                category:    'database',
+                action:      e.action || 'log',
+                created_at:  e.created_at,
+                actor_name:  null,
+                description: (e.meta && Object.keys(e.meta).length)
+                                 ? Object.entries(e.meta).map(([k,v]) => `${k}: ${v}`).join(' · ')
+                                 : null,
+            }))
+        )
+
+        // ── Utils ────────────────────────────────────────────
+        function fmt_date(iso) {
+            if (!iso) return '—'
+            try {
+                return new Date(iso).toLocaleString('en-GB', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                })
+            } catch { return iso }
+        }
+
+        async function refresh_all() {
+            loading.value = true
+            await Promise.all([load_db_info(), load_backups(), load_migrations(), load_history()])
+            loading.value = false
+        }
+
+        onMounted(async () => {
+            await refresh_all()
+            ready.value = true
+        })
+
+        return {
+            message_list, ready, loading,
+            db_info, max_rows,
+            backups, backup_creating,
+            renaming, rename_value, start_rename, cancel_rename, save_rename,
+            pending, action_code, action_confirming,
+            action_label, action_icon, action_color, action_btn_class,
+            create_backup, initiate_action, confirm_action, cancel_action,
+            sql_query, sql_running, sql_result, sql_error, sql_is_dml, sql_is_destructive,
+            sql_terminal_log, run_sql,
+            migrations, migration_running, migration_job_uuid, run_upgrade, run_downgrade,
+            history, history_tl,
+            fmt_date, refresh_all,
+        }
+    }
+}).mount('#main-container')
+</script>
+{% endblock %}

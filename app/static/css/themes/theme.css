@@ -1,0 +1,199 @@
+/*
+  theme.css — Built-in theme overrides
+  Default light palette is in :root (core.css).
+  Custom themes are in custom-themes.css (auto-generated).
+*/
+
+/*---DARK_MODE---*/
+
+[data-bs-theme="dark"] {
+    --bg-body: #1A171D;
+    --bg-surface: #242129;
+    --bg-elevated: #2E2A33;
+    --bg-sidebar: #151318;
+
+    --text-main: #F2EFEA;
+    --text-secondary: #A39D99;
+    --text-muted: #6B6663;
+
+    --border: rgba(237, 232, 227, 0.15);
+    --border-subtle: rgba(237, 232, 227, 0.08);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .20), 0 1px 3px rgba(0, 0, 0, .15);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .25), 0 2px 4px rgba(0, 0, 0, .15);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, .35), 0 4px 12px rgba(0, 0, 0, .20);
+}
+
+
+/*---THEME_OCEAN---*/
+/* LIGHT — airy coastal, sidebar dark navy, accent cerulean */
+
+[data-theme="ocean"] {
+    --bg-body: #E8F4FD;
+    --bg-surface: #FFFFFF;
+    --bg-elevated: #F0F8FF;
+    --bg-sidebar: #04111F;
+
+    --brand: #0077B6;
+    --brand-dim: rgba(0, 119, 182, 0.10);
+    --brand-glow: rgba(0, 119, 182, 0.22);
+
+    --text-main: #082A4A;
+    --text-secondary: #2C6490;
+    --text-muted: #7AAAC8;
+
+    --text-sidebar: rgba(190, 225, 255, 0.90);
+    --text-sidebar-muted: rgba(80, 150, 210, 0.50);
+
+    --border: rgba(8, 42, 74, 0.08);
+    --border-subtle: rgba(8, 42, 74, 0.04);
+    --border-sidebar: rgba(0, 119, 182, 0.10);
+
+    --sidebar-hover: rgba(0, 119, 182, 0.12);
+    --sidebar-active: rgba(0, 119, 182, 0.22);
+
+    --shadow-sm: 0 1px 3px rgba(0, 60, 120, 0.07);
+    --shadow-md: 0 4px 16px rgba(0, 60, 120, 0.10);
+    --shadow-lg: 0 12px 40px rgba(0, 60, 120, 0.14);
+}
+
+
+/*---THEME_FOREST---*/
+/* Very dark woodland — muted pine, accent moss */
+
+[data-theme="forest"] {
+    --bg-body: #2a3d34;
+    --bg-surface: #1e2a24;
+    --bg-elevated: #24332b;
+    --bg-sidebar: #1a241e;
+
+    --brand: #4a7c59;
+    --brand-dim: rgba(74, 124, 89, 0.15);
+    --brand-glow: rgba(74, 124, 89, 0.3);
+
+    --text-main: #d1e0d7;
+    --text-secondary: #a8b8ae;
+    --text-muted: #738f7d;
+
+    --text-sidebar: #c0d0c6;
+    --text-sidebar-muted: rgba(192, 208, 198, 0.5);
+
+    --border: rgba(74, 124, 89, 0.25);
+    --border-subtle: rgba(74, 124, 89, 0.12);
+    --border-sidebar: rgba(74, 124, 89, 0.2);
+
+    --sidebar-hover: rgba(74, 124, 89, 0.2);
+    --sidebar-active: rgba(74, 124, 89, 0.35);
+
+    --shadow-sm: 0 1px 3px rgba(0, 8, 4, 0.6);
+    --shadow-md: 0 4px 16px rgba(0, 8, 4, 0.7);
+    --shadow-lg: 0 12px 40px rgba(0, 8, 4, 0.85);
+}
+
+
+/*---THEME_MIDNIGHT---*/
+/* Very dark cosmic — deep indigo, accent electric violet */
+
+[data-theme="midnight"] {
+    --bg-body: #1a162e;
+    --bg-surface: #25203d;
+    --bg-elevated: #2d274d;
+    --bg-sidebar: #151224;
+
+    --brand: #b39bf9;
+    --brand-dim: rgba(179, 155, 249, 0.18);
+    --brand-glow: rgba(179, 155, 249, 0.4);
+
+    --text-main: #f5f3ff;
+    --text-secondary: #ddd6fe;
+    --text-muted: #a78bfa;
+
+    --text-sidebar: #ede9fe;
+    --text-sidebar-muted: rgba(237, 233, 254, 0.65);
+
+    --border: rgba(179, 155, 249, 0.3);
+    --border-subtle: rgba(179, 155, 249, 0.15);
+    --border-sidebar: rgba(179, 155, 249, 0.25);
+
+    --sidebar-hover: rgba(179, 155, 249, 0.2);
+    --sidebar-active: rgba(179, 155, 249, 0.3);
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/*---THEME_CHRISTMAS---*/
+/* Festive light — warm snow-white canvas, Christmas red sidebar, gold accents */
+
+[data-theme="christmas"] {
+    /* ── Backgrounds — near-black dark green ── */
+    --bg-body:     #0B1610;
+    --bg-surface:  #111E16;
+    --bg-elevated: #162419;
+    --bg-sidebar:  #1C3A28;
+
+    /* ── Brand — Christmas red ─────────────── */
+    --brand:      #E8372A;
+    --brand-dim:  rgba(232, 55, 42, 0.15);
+    --brand-glow: rgba(232, 55, 42, 0.32);
+
+    /* ── Text ──────────────────────────────── */
+    --text-main:      #EDF6EF;
+    --text-secondary: #9ABFA2;
+    --text-muted:     #527858;
+
+    /* ── Sidebar text (on pine green) ─────── */
+    --text-sidebar:       rgba(237, 246, 239, 0.90);
+    --text-sidebar-muted: rgba(154, 191, 162, 0.46);
+
+    /* ── Borders ───────────────────────────── */
+    --border:         rgba(90, 180, 110, 0.12);
+    --border-subtle:  rgba(90, 180, 110, 0.06);
+    --border-sidebar: rgba(90, 180, 110, 0.14);
+
+    /* ── Sidebar interactions ──────────────── */
+    --sidebar-hover:  rgba(255, 255, 255, 0.07);
+    --sidebar-active: rgba(232, 55, 42, 0.22);
+
+    /* ── Shadows ───────────────────────────── */
+    --shadow-sm: 0 1px 3px rgba(0, 8, 2, 0.50);
+    --shadow-md: 0 4px 16px rgba(0, 8, 2, 0.60);
+    --shadow-lg: 0 12px 40px rgba(0, 8, 2, 0.78);
+
+    /* ── Christmas extras ──────────────────── */
+    --xmas-red:  #E8372A;
+    --xmas-gold: #D4A017;
+}
+
+/*---THEME_SLATE---*/
+/* Blue-grey dark — between dark and light, cool steel tones */
+
+[data-theme="slate"] {
+    --bg-body: #0C1422;
+    --bg-surface: #141E30;
+    --bg-elevated: #1C2A40;
+    --bg-sidebar: #07101C;
+
+    --brand: #4A90D9;
+    --brand-dim: rgba(74, 144, 217, 0.12);
+    --brand-glow: rgba(74, 144, 217, 0.25);
+
+    --text-main: #C0D4EE;
+    --text-secondary: #7098BC;
+    --text-muted: #3A5878;
+
+    --text-sidebar: rgba(180, 210, 245, 0.88);
+    --text-sidebar-muted: rgba(80, 130, 185, 0.45);
+
+    --border: rgba(74, 144, 217, 0.10);
+    --border-subtle: rgba(74, 144, 217, 0.05);
+    --border-sidebar: rgba(74, 144, 217, 0.08);
+
+    --sidebar-hover: rgba(74, 144, 217, 0.08);
+    --sidebar-active: rgba(74, 144, 217, 0.16);
+
+    --shadow-sm: 0 1px 3px rgba(0, 15, 40, .40);
+    --shadow-md: 0 4px 16px rgba(0, 12, 35, .50);
+    --shadow-lg: 0 12px 40px rgba(0, 8, 25, .65);
+}

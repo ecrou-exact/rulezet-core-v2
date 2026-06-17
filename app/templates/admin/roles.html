@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% block page_title %}Roles{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/table/data-table.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pagination/pagination.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/roles.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/modal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item">Admin</li>
+                        <li class="breadcrumb-item active">Roles</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Roles</h1>
+            </div>
+            <div class="page-actions">
+                <a href="/admin/roles/new" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus me-1"></i>New role
+                </a>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <data-table
+                ref="table_ref"
+                fetch-url="/api/roles/"
+                mode="manage"
+                :columns="columns"
+                :can-view="true"
+                :can-edit="true"
+                :can-delete="true"
+                :bulk-actions="bulk_actions"
+                default-view="table"
+                :initial-per-page="25"
+                @view="goToRole"
+                @edit="goToRole"
+                @delete="handleDelete"
+                @bulk-action="handleBulkAction">
+
+                <template #cell-name="{ item }">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="role-badge-icon" :style="badgeStyle(item)">
+                            <i :class="'fas ' + item.icon"></i>
+                        </div>
+                        <span style="font-weight:600;font-size:.875rem;color:var(--text-main);">[[ item.name ]]</span>
+                        <span v-if="item.protected"
+                              style="font-size:.65rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);">
+                            Protected
+                        </span>
+                    </div>
+                </template>
+
+                <template #cell-type="{ item }">
+                    <span v-if="item.admin" class="role-badge-admin">
+                        <i class="fas fa-shield-halved"></i>Admin
+                    </span>
+                    <span v-else-if="item.read_only" class="role-badge-readonly">
+                        <i class="fas fa-eye"></i>Read only
+                    </span>
+                    <span v-else class="role-badge-standard" :style="badgeStyle(item)">
+                        <i :class="'fas ' + item.icon"></i>Standard
+                    </span>
+                </template>
+
+                <template #cell-permissions="{ item }">
+                    <span v-if="item.admin" style="font-size:.78rem;color:var(--brand);font-weight:600;">All</span>
+                    <span v-else style="font-size:.78rem;color:var(--text-secondary);">
+                        [[ item.permissions.length ]] permission[[ item.permissions.length !== 1 ? 's' : '' ]]
+                    </span>
+                </template>
+
+                <template #card-body="{ item }">
+                    <div style="font-size:.8rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:.4rem;">
+                        <div>
+                            <span style="color:var(--text-muted);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Type</span>
+                            <span style="display:block;margin-top:.2rem;">
+                                <span v-if="item.admin" class="role-badge-admin"><i class="fas fa-shield-halved"></i>Admin</span>
+                                <span v-else-if="item.read_only" class="role-badge-readonly"><i class="fas fa-eye"></i>Read only</span>
+                                <span v-else class="role-badge-standard" :style="badgeStyle(item)"><i :class="'fas ' + item.icon"></i>Standard</span>
+                            </span>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Permissions</span>
+                            <span style="display:block;" v-if="item.admin">All</span>
+                            <span style="display:block;" v-else>[[ item.permissions.length ]] permission[[ item.permissions.length !== 1 ? 's' : '' ]]</span>
+                        </div>
+                        <div v-if="item.description">
+                            <span style="color:var(--text-muted);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Description</span>
+                            <span style="display:block;color:var(--text-main);">[[ item.description ]]</span>
+                        </div>
+                    </div>
+                </template>
+
+                <template #expand="{ item }">
+                    <div class="dt-expand-grid">
+                        <div class="dt-expand-field">
+                            <label>Admin flag</label>
+                            <span>[[ item.admin ? 'Yes — full access' : 'No' ]]</span>
+                        </div>
+                        <div class="dt-expand-field">
+                            <label>Read only</label>
+                            <span>[[ item.read_only ? 'Yes' : 'No' ]]</span>
+                        </div>
+                        <div class="dt-expand-field" style="grid-column:1/-1;" v-if="item.description">
+                            <label>Description</label>
+                            <span style="display:block;max-height:80px;overflow-y:auto;padding-right:.25rem;">[[ item.description ]]</span>
+                        </div>
+                        <div class="dt-expand-field" style="grid-column:1/-1;" v-if="item.permissions.length && !item.admin">
+                            <label>Permissions</label>
+                            <span style="display:block;max-height:60px;overflow-y:auto;word-break:break-all;">[[ item.permissions.join(', ') ]]</span>
+                        </div>
+                    </div>
+                </template>
+
+            </data-table>
+        </div>
+    </div>
+
+    <modal-confirm
+        :visible="show_delete_modal"
+        title="Delete role"
+        :message="'Delete role ' + (selected_role ? '&quot;' + selected_role.name + '&quot;' : '') + '? This cannot be undone.'"
+        confirm-label="Delete"
+        variant="danger"
+        :loading="delete_loading"
+        @confirm="confirmDelete"
+        @cancel="show_delete_modal = false">
+    </modal-confirm>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar    from '/static/js/components/loading-bar.js'
+    import DataTable     from '/static/js/components/table/data-table.js'
+    import ModalConfirm  from '/static/js/components/modals/modal-confirm.js'
+    import BaseModal     from '/static/js/components/modals/base-modal.js'
+
+    const COLOR_MAP = {
+        brand:  { bg: 'var(--brand-dim)',          color: 'var(--brand)' },
+        blue:   { bg: 'rgba(59,130,246,.13)',       color: '#3b82f6' },
+        green:  { bg: 'rgba(34,197,94,.13)',        color: '#22c55e' },
+        red:    { bg: 'rgba(239,68,68,.13)',        color: '#ef4444' },
+        orange: { bg: 'rgba(249,115,22,.13)',       color: '#f97316' },
+        purple: { bg: 'rgba(168,85,247,.13)',       color: '#a855f7' },
+        gray:   { bg: 'var(--bg-elevated)',         color: 'var(--text-secondary)' },
+    }
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, DataTable, ModalConfirm, BaseModal },
+        setup() {
+            const page_is_loading  = ref(false)
+            const table_ref        = ref(null)
+            const show_delete_modal = ref(false)
+            const selected_role     = ref(null)
+            const delete_loading    = ref(false)
+
+            const columns = [
+                { key: 'name',        label: 'Name',        sortable: true,  truncate: false, width: '180px' },
+                { key: 'type',        label: 'Type',        sortable: false, truncate: false, width: '120px' },
+                { key: 'permissions', label: 'Permissions', sortable: false, truncate: false, width: '140px' },
+                { key: 'description', label: 'Description', sortable: false, truncate: true,  width: '220px' },
+            ]
+
+            const bulk_actions = [
+                { key: 'delete', label: 'Delete', icon: 'fa-trash', variant: 'danger' },
+            ]
+
+            function badgeStyle(item) {
+                const c = COLOR_MAP[item.color] || COLOR_MAP.gray
+                return { background: c.bg, color: c.color }
+            }
+
+            function goToRole(item) {
+                window.location.href = `/admin/roles/${item.id}`
+            }
+
+            function handleDelete(item) {
+                if (item.protected) {
+                    create_message(`"${item.name}" is a protected role and cannot be deleted.`, TOAST.WARNING, true)
+                    return
+                }
+                selected_role.value = item
+                show_delete_modal.value = true
+            }
+
+            async function confirmDelete() {
+                if (!selected_role.value) return
+                delete_loading.value = true
+                const res  = await apiFetch(`/api/roles/${selected_role.value.id}`, 'DELETE')
+                const data = await res.json()
+                delete_loading.value = false
+                show_delete_modal.value = false
+                if (res.ok) {
+                    await create_message('Role deleted', TOAST.SUCCESS, false)
+                    table_ref.value?.fetchData()
+                } else {
+                    await create_message(data.message || 'Error', TOAST.ERROR, true)
+                }
+                selected_role.value = null
+            }
+
+            async function handleBulkAction({ action, ids }) {
+                if (action !== 'delete') return
+                if (!confirm(`Delete ${ids.length} role(s)? Protected roles will be skipped. This cannot be undone.`)) return
+                let errors = 0
+                for (const id of ids) {
+                    const res = await apiFetch(`/api/roles/${id}`, 'DELETE')
+                    if (!res.ok) {
+                        const d = await res.json()
+                        await create_message(d.message || `Error deleting #${id}`, TOAST.WARNING, false)
+                        errors++
+                    }
+                }
+                if (errors === 0) await create_message(`${ids.length} role(s) deleted`, TOAST.SUCCESS, false)
+                table_ref.value?.fetchData()
+            }
+
+            onMounted(() => { page_is_loading.value = true })
+
+            return {
+                message_list, page_is_loading, table_ref,
+                columns, bulk_actions,
+                show_delete_modal, selected_role, delete_loading,
+                badgeStyle, goToRole, handleDelete, confirmDelete, handleBulkAction,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

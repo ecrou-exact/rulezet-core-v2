@@ -1,0 +1,278 @@
+/* =========================
+   HOME — HERO
+========================= */
+
+.home-hero {
+    position: relative;
+    padding: 5rem 0 4rem;
+    text-align: center;
+    overflow: hidden;
+}
+
+/* Orb 1 — top-right, brand tint */
+.home-hero::before {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -100px;
+    width: 520px;
+    height: 520px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--brand-dim, rgba(212,82,42,.18)) 0%, transparent 70%);
+    filter: blur(48px);
+    animation: home-orb-drift 18s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Orb 2 — bottom-left, muted accent */
+.home-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px;
+    left: -80px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--brand-dim, rgba(212,82,42,.12)) 0%, transparent 65%);
+    filter: blur(56px);
+    animation: home-orb-drift 22s ease-in-out infinite reverse;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes home-orb-drift {
+    0%, 100% { transform: translate(0, 0) scale(1);      }
+    33%       { transform: translate(-30px, 20px) scale(1.06); }
+    66%       { transform: translate(20px, -25px) scale(.95);  }
+}
+
+.home-hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: auto;
+}
+
+.home-hero-badge {
+    display: inline-flex;
+    gap: .5rem;
+    padding: .4rem .9rem;
+    border-radius: 999px;
+    background: var(--brand-dim);
+    color: var(--brand);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    font-size: .82rem;
+    font-weight: 500;
+}
+
+.home-hero-title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    opacity: 0;
+    animation: fadeUp .8s ease forwards;
+}
+
+.home-hero-subtitle {
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: auto;
+    margin-bottom: 2rem;
+    opacity: 0;
+    animation: fadeUp 1s ease forwards;
+}
+
+.home-hero-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    opacity: 0;
+    animation: fadeUp 1.2s ease forwards;
+}
+
+/* =========================
+   HOME — SECTIONS
+========================= */
+
+.home-section {
+    margin-bottom: 3rem;
+}
+
+.home-section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: .35rem;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity .5s ease, transform .5s ease;
+}
+
+.home-section-subtitle {
+    color: var(--text-muted);
+    font-size: .85rem;
+    margin-bottom: 1rem;
+}
+
+.home-section-title.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* =========================
+   HOME — CHART SECTION
+========================= */
+
+.home-chart-section {
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .6s ease, transform .6s ease;
+}
+
+.home-chart-section.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* =========================
+   HOME — FEATURE CARDS
+========================= */
+
+.home-feature-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.4rem;
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.home-feature-card.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity .6s ease, transform .6s ease,
+                box-shadow .25s ease, border-color .25s ease;
+}
+
+.home-feature-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .12);
+    border-color: var(--brand);
+}
+
+/* Radial glow on hover (CSS custom property set by JS) */
+.home-feature-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        360px circle at var(--x, 50%) var(--y, 50%),
+        rgba(99, 102, 241, .12),
+        transparent 40%
+    );
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+}
+
+.home-feature-card:hover::before {
+    opacity: 1;
+}
+
+.home-feature-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--brand-dim);
+    color: var(--brand);
+    font-size: .95rem;
+    margin-bottom: .85rem;
+}
+
+.home-feature-card h3 {
+    font-size: .95rem;
+    font-weight: 700;
+    margin-bottom: .3rem;
+    color: var(--text-main);
+}
+
+.home-feature-card p {
+    font-size: .82rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* =========================
+   HOME — ARCHITECTURE FLOW
+========================= */
+
+.home-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: center;
+}
+
+.home-flow span {
+    padding: .4rem .8rem;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    font-size: .82rem;
+    color: var(--text-secondary);
+}
+
+.home-flow i {
+    color: var(--text-muted);
+    font-size: .72rem;
+}
+
+/* =========================
+   HOME — CTA
+========================= */
+
+.home-cta {
+    margin-top: 4rem;
+    text-align: center;
+    padding: 4rem 2rem;
+    border-radius: 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity .8s ease, transform .8s ease;
+}
+
+.home-cta.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.home-cta h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: .5rem;
+    color: var(--text-main);
+}
+
+.home-cta p {
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+}
+
+/* =========================
+   ANIMATIONS
+========================= */
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}

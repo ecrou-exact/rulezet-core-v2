@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+{% set nav_mode = (user_config.nav_position if user_config else 'sidebar') %}
+{% set is_collapsed = (user_config and user_config.sidebar_collapsed) %}
+<html lang="en" {% if user_config %}data-user-theme="{{ user_config.theme }}"{% endif %}>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flask Launchpad</title>
+    <link rel="icon" href="{{ url_for('static', filename='image/logo.png') }}">
+
+    {# Fonts #}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    {# Inject custom theme data before theme.js so applyTheme() knows about them #}
+    <script>window.__CUSTOM_THEMES__ = {{ custom_themes_for_js | tojson | safe }};</script>
+    {# theme.js — sync, before CSS, prevents flash #}
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+    {# CSS #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-5.3.0/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome-6.3.0/css/fontawesome.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome-6.3.0/css/solid.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome-6.3.0/css/brands.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes/custom-themes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes/christmas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/modal.css') }}">
+    {% if weather_widget_enabled %}<link rel="stylesheet" href="{{ url_for('static', filename='css/components/weather-widget.css') }}">{% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/role-badge.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/job-monitor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/toast/toast.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nav/nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/footer/footer.css') }}">
+
+    {% block head_extra %}{% endblock %}
+
+    {# JS libraries #}
+    <script src="{{ url_for('static', filename='bootstrap-5.3.0/js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/vue.global.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="{{ url_for('static', filename='js/blur.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/nav.js') }}" defer></script>
+</head>
+
+<body>
+
+<div class="app-wrapper
+    {%- if nav_mode == 'topbar' %} app-wrapper--topbar
+    {%- elif nav_mode == 'rail' %} app-wrapper--rail
+    {%- elif nav_mode == 'hidden' %} app-wrapper--hidden
+    {%- elif is_collapsed %} sidebar-collapsed
+    {%- endif %}"
+    id="appWrapper">
+
+    {# ── Navigation (set to empty on login / standalone pages) ── #}
+    {% block top_nav %}
+    {% include 'macros/_nav.html' %}
+    {% endblock %}
+
+    {# ── Main content area ── #}
+    <div class="app-main {% if not self.top_nav()|trim or nav_mode in ('topbar', 'hidden') %}app-main--full{% endif %}">
+
+        {# Secondary topbar (sidebar / rail modes only) — shows page title #}
+        {% if self.top_nav()|trim and nav_mode not in ('topbar',) %}
+        <header class="app-topbar">
+            <div class="topbar-left">
+                <button class="btn-icon btn-hamburger" onclick="openSidebar()" title="Menu">
+                    <i class="fas fa-bars" style="font-size:.8rem;"></i>
+                </button>
+                <span class="topbar-page-title">
+                    {% block page_title %}{{ request.endpoint | replace('.', ' ') | title if request.endpoint else 'App' }}{% endblock %}
+                </span>
+            </div>
+            <div class="topbar-right">
+                {% if current_user.is_authenticated %}
+                {% from 'macros/_role_badge.html' import role_badge %}
+                <button class="gs-btn" onclick="gsOpen()" title="Search (Ctrl+K)">
+                    <i class="fas fa-magnifying-glass"></i>
+                </button>
+                {{ role_badge(current_user.role) }}
+                {% endif %}
+
+                {# ── Weather & time widget ── #}
+                {% if weather_widget_enabled %}
+                <div class="ww-chip" id="ww-chip" onclick="wwToggle()" title="Weather & local time">
+                    <span class="ww-icon" id="ww-icon"><i class="fas fa-cloud" style="color:var(--text-muted)"></i></span>
+                    <span class="ww-temp" id="ww-temp"></span>
+                    <span class="ww-sep">·</span>
+                    <span class="ww-time" id="ww-time">--:--</span>
+                    <div class="ww-tooltip" id="ww-tooltip">
+                        <div class="ww-tooltip-header">
+                            <span class="ww-tooltip-icon" id="ww-icon-lg"><i class="fas fa-cloud" style="color:var(--text-muted)"></i></span>
+                            <div>
+                                <div class="ww-tooltip-city" id="ww-city">Detecting…</div>
+                                <div class="ww-tooltip-time-local" id="ww-time-local">--:--</div>
+                            </div>
+                        </div>
+                        <div class="ww-tooltip-body">
+                            <span class="ww-tooltip-desc" id="ww-desc">Loading weather…</span>
+                            <span id="ww-wind"></span>
+                            <span class="ww-tooltip-source">Open-Meteo · OpenStreetMap</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# ── Language picker ── #}
+                <div class="lang-picker" id="langPicker">
+                    <button class="btn-icon lang-picker-btn" id="langPickerBtn"
+                            onclick="lpToggle()" title="Translate page"
+                            aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-globe" style="font-size:.78rem;"></i>
+                        <span class="lang-picker-active" id="langPickerActive"></span>
+                    </button>
+                    <div class="lang-picker-dropdown" id="langPickerDropdown" role="menu">
+                        <div class="lang-picker-header">
+                            <span><i class="fas fa-globe"></i> Translate</span>
+                            <button class="lang-picker-reset" onclick="lpReset()" title="Show original">
+                                <i class="fas fa-rotate-left"></i> Original
+                            </button>
+                        </div>
+                        <div class="lang-picker-list" id="langPickerList"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        {% endif %}
+
+        {# Page content #}
+        <main id="main-container">
+
+            {# ── Unified toast container (flash + Vue toasts) ── #}
+            {% set _tdur = (user_config.toast_duration * 1000) if user_config and user_config.toast_duration else 5000 %}
+            <div class="app-toast-container"
+                 id="appToastContainer"
+                 data-position="{{ user_config.toast_position if user_config and user_config.toast_position else 'top-right' }}"
+                 data-style="{{ user_config.toast_style if user_config and user_config.toast_style else 'card' }}"
+                 data-duration="{{ _tdur }}"
+                 aria-live="polite" aria-atomic="true">
+
+                {# Static flash messages from Flask #}
+                {% for category, message in get_flashed_messages(with_categories=True) %}
+                {% set ftype = 'danger' if category in ('error', 'danger') else ('success' if category == 'success' else ('warning' if category == 'warning' else 'info')) %}
+                {% set ficon = 'fa-circle-check' if ftype == 'success' else ('fa-triangle-exclamation' if ftype == 'warning' else ('fa-circle-xmark' if ftype == 'danger' else 'fa-circle-info')) %}
+                <div class="app-toast app-toast--{{ ftype }} app-toast--visible is-flash"
+                     style="--toast-dur: {{ _tdur }}ms">
+                    <div class="app-toast-stripe"></div>
+                    <div class="app-toast-icon-wrap"><i class="fas {{ ficon }}"></i></div>
+                    <div class="app-toast-body">
+                        <p class="app-toast-message">{{ message }}</p>
+                    </div>
+                    <button class="app-toast-close-btn" onclick="closeFlashToast(this)" aria-label="Close">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    <div class="app-toast-progress"></div>
+                </div>
+                {% endfor %}
+
+                {# Dynamic Vue toasts #}
+                <template v-if="message_list">
+                    <div v-for="msg in message_list"
+                         :key="msg.id"
+                         :class="['app-toast', 'app-toast--' + msg.type, 'app-toast--visible', { 'app-toast--persistent': msg.not_hide }]"
+                         :style="{ '--toast-dur': msg.duration + 'ms' }"
+                         role="alert">
+                        <div class="app-toast-stripe"></div>
+                        <div class="app-toast-icon-wrap"><i :class="'fas ' + msg.icon"></i></div>
+                        <div class="app-toast-body">
+                            <p class="app-toast-message">[[ msg.message ]]</p>
+                            <a v-if="msg.link" :href="msg.link.href" :target="msg.link.target || '_self'"
+                               class="app-toast-link">[[ msg.link.label ]]</a>
+                        </div>
+                        <button class="app-toast-close-btn"
+                                :data-dismiss-id="msg.id"
+                                aria-label="Close">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                        <div class="app-toast-progress"></div>
+                    </div>
+                </template>
+            </div>
+
+            {# ── Admin inner tabs — auto-injected on admin/jobs/tags paths ── #}
+            {% set _is_admin_path = (
+                request.path.startswith('/admin') or
+                request.path.startswith('/jobs') or
+                request.path.startswith('/tags') or
+                request.path.startswith('/connectors')
+            ) %}
+            {% if _is_admin_path %}
+            {% include 'macros/_admin_tabs.html' %}
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </main>
+
+        {# Footer — only on pages with navigation #}
+        {% if self.top_nav()|trim %}
+        {% include 'macros/_footer.html' %}
+        {% endif %}
+
+    </div>
+</div>
+
+{# CSRF token for JS API calls #}
+<div style="display:none;">
+    <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token()|safe }}">
+</div>
+
+{# ── Flash toast helpers ── #}
+<script>
+function closeFlashToast(btn) {
+    const toast = btn.closest('.app-toast')
+    if (!toast) return
+    toast.classList.add('is-hiding')
+    setTimeout(() => toast.remove(), 260)
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.app-toast.is-flash').forEach(function (t) {
+        var dur = parseInt(t.style.getPropertyValue('--toast-dur')) || 5000
+        setTimeout(function () { closeFlashToast(t.querySelector('.app-toast-close-btn')) }, dur)
+    })
+})
+</script>
+
+{# ── Scroll to top ── #}
+<button id="scrollTopBtn" aria-label="Scroll to top" title="Back to top">
+    <i class="fas fa-chevron-up"></i>
+</button>
+<script src="{{ url_for('static', filename='js/scroll-top.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/christmas-effects.js') }}" defer></script>
+{% if weather_widget_enabled %}<script src="{{ url_for('static', filename='js/weather-widget.js') }}" defer></script>{% endif %}
+
+{# ── Global search panel ── #}
+{% if current_user.is_authenticated %}
+<div class="gs-backdrop" id="gsBackdrop" onclick="gsClose()"></div>
+<div class="gs-panel" id="gsPanel" role="dialog" aria-label="Search">
+    <div class="gs-input-wrap">
+        <i class="fas fa-magnifying-glass gs-input-icon"></i>
+        <input type="text" class="gs-input" id="gsInput" placeholder="Search pages…" autocomplete="off" spellcheck="false">
+        <kbd class="gs-kbd">Esc</kbd>
+    </div>
+    <div class="gs-body" id="gsBody"></div>
+</div>
+
+{% include 'macros/_user_perms.html' %}
+{% include 'macros/_search_sections.html' %}
+<script src="{{ url_for('static', filename='js/global-search.js') }}" defer></script>
+{% endif %}
+
+{# ── Scripts ── #}
+{% block script %}
+<script type="module">
+    const { createApp } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    createApp({
+        delimiters: ['[[', ']]'],
+        setup() { return { message_list } }
+    }).mount('#main-container')
+</script>
+{% endblock %}
+
+{# ── Global job monitor widget (authenticated users only) ── #}
+{% if current_user.is_authenticated %}
+<div id="job-monitor-widget"></div>
+<script src="{{ url_for('static', filename='js/job-monitor.js') }}" defer></script>
+{% endif %}
+
+{# ── Google Translate (hidden widget + custom picker) ── #}
+<div id="google_translate_element" style="display:none;visibility:hidden;"></div>
+<script src="{{ url_for('static', filename='js/lang-picker.js') }}"></script>
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
+
+</body>
+</html>

@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% block page_title %}Edit Profile{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account/account.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('account.index') }}">Account</a></li>
+                        <li class="breadcrumb-item active">Edit</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">Edit Profile</h1>
+            </div>
+            <div class="page-actions">
+                <a href="{{ url_for('account.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-xmark me-1"></i>Cancel
+                </a>
+            </div>
+        </div>
+
+        <div class="page-body">
+
+            {% if current_user.pending_email %}
+            <div class="alert alert-warning d-flex align-items-center gap-3 mb-3" role="alert">
+                <i class="fas fa-clock fa-lg flex-shrink-0"></i>
+                <div class="flex-grow-1">
+                    <strong>Email change pending</strong> — a verification code was sent to
+                    <strong>{{ current_user.pending_email }}</strong>.
+                    Your current email stays active until you confirm.
+                </div>
+                <div class="d-flex gap-2 flex-shrink-0">
+                    <a href="{{ url_for('account.verify_email_change') }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-circle-check me-1"></i>Enter code
+                    </a>
+                    <form method="post" action="{{ url_for('account.cancel_email_change') }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-xmark me-1"></i>Cancel
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <form action="{{ url_for('account.edit_user') }}" method="POST" enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+
+                <div class="row g-3">
+
+                    {# Left column — avatar + form sections #}
+                    <div class="col-12 col-lg-8">
+
+                        {# Identity #}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <p class="form-section-title">
+                                    <span class="form-section-icon"><i class="fas fa-user"></i></span>
+                                    Identity
+                                </p>
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.first_name.label.text }}</label>
+                                        {{ form.first_name(class="form-control", placeholder="First name") }}
+                                        {% for e in form.first_name.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.last_name.label.text }}</label>
+                                        {{ form.last_name(class="form-control", placeholder="Last name") }}
+                                        {% for e in form.last_name.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.email.label.text }}</label>
+                                        {{ form.email(class="form-control", placeholder="you@example.com") }}
+                                        {% for e in form.email.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">
+                                            Username
+                                            <span class="text-muted small">(optional — shown as @handle)</span>
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text text-muted">@</span>
+                                            {{ form.username_handle(class="form-control", placeholder="handle") }}
+                                        </div>
+                                        {% for e in form.username_handle.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Profile details #}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <p class="form-section-title">
+                                    <span class="form-section-icon"><i class="fas fa-id-card"></i></span>
+                                    Profile Details
+                                </p>
+                                <div class="mb-3">
+                                    <label class="form-label">Bio <span class="text-muted small">(max 500 chars)</span></label>
+                                    {{ form.bio(class="form-control", rows=3, placeholder="Tell people a bit about yourself…") }}
+                                    {% for e in form.bio.errors %}
+                                    <div class="text-danger small mt-1">{{ e }}</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.job_title.label.text }}</label>
+                                        {{ form.job_title(class="form-control", placeholder="Software Engineer") }}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.company.label.text }}</label>
+                                        {{ form.company(class="form-control", placeholder="Company Inc.") }}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.location.label.text }}</label>
+                                        {{ form.location(class="form-control", placeholder="Paris, France") }}
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">{{ form.phone.label.text }}</label>
+                                        {{ form.phone(class="form-control", placeholder="+33 6 12 34 56 78") }}
+                                        {% for e in form.phone.errors %}
+                                        <div class="text-danger small mt-1">{{ e }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Social links #}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <p class="form-section-title">
+                                    <span class="form-section-icon"><i class="fas fa-link"></i></span>
+                                    Social &amp; Links
+                                </p>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Website</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-globe" style="font-size:.75rem;"></i></span>
+                                            {{ form.website(class="form-control", placeholder="https://yoursite.com") }}
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">Twitter / X</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text text-muted" style="font-size:.75rem;">@</span>
+                                            {{ form.social_twitter(class="form-control", placeholder="handle") }}
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label">GitHub</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fab fa-github" style="font-size:.8rem;"></i></span>
+                                            {{ form.social_github(class="form-control", placeholder="handle") }}
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">LinkedIn URL</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fab fa-linkedin" style="font-size:.8rem;"></i></span>
+                                            {{ form.social_linkedin(class="form-control", placeholder="https://linkedin.com/in/you") }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Password #}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <p class="form-section-title">
+                                    <span class="form-section-icon"><i class="fas fa-lock"></i></span>
+                                    Change Password
+                                    <span class="text-muted small fw-normal ms-2">Leave empty to keep current</span>
+                                </p>
+                                {{ form.password(class="form-control", placeholder="New password (min 8 chars, upper, lower, digit)", id="passwordInput") }}
+                                {% for e in form.password.errors %}
+                                <div class="text-danger small mt-1">{{ e }}</div>
+                                {% endfor %}
+                                <password-strength :value="password_input"></password-strength>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {# Right column — avatar #}
+                    <div class="col-12 col-lg-4">
+                        <div class="card" style="position:sticky;top:calc(var(--topbar-height) + 1rem);">
+                            <div class="card-body">
+                                <p class="form-section-title">
+                                    <span class="form-section-icon"><i class="fas fa-image"></i></span>
+                                    Profile Picture
+                                </p>
+
+                                <div class="avatar-upload-area" id="avatarDropArea">
+                                    <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp">
+                                    {% if current_user.avatar_filename %}
+                                    <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_filename) }}"
+                                         alt="Avatar" class="avatar-upload-preview" id="avatarPreview">
+                                    {% else %}
+                                    <div class="avatar-upload-initials" id="avatarInitials">
+                                        {{ current_user.initials() }}
+                                    </div>
+                                    {% endif %}
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-upload me-1"></i>
+                                        Click or drag to upload<br>
+                                        <span style="font-size:.7rem;">JPG, PNG, WEBP — max 2 MB</span>
+                                    </p>
+                                </div>
+
+                                <div id="avatarStatus" class="text-muted small mt-2" style="display:none;"></div>
+
+                                {% if current_user.avatar_filename %}
+                                <button type="button" class="btn btn-sm btn-outline-danger w-100 mt-2"
+                                        onclick="removeAvatar()">
+                                    <i class="fas fa-trash me-1"></i>Remove photo
+                                </button>
+                                {% endif %}
+
+                                <div class="mt-3 pt-3 border-top">
+                                    <p class="text-muted small mb-0">
+                                        Avatar is uploaded immediately when you select a file.
+                                        Max dimension: 400×400 px.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {# Submit #}
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <a href="{{ url_for('account.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    {{ form.submit(class="btn btn-primary px-4") }}
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted, nextTick } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import { TOAST } from '/static/js/constants.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+    import PasswordStrength from '/static/js/components/password-strength.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, PasswordStrength },
+        setup() {
+            const page_is_loading = ref(false)
+            const password_input  = ref('')
+
+            onMounted(async () => {
+                page_is_loading.value = true
+                await nextTick()
+                const field = document.getElementById('passwordInput')
+                if (field) field.addEventListener('input', e => { password_input.value = e.target.value })
+            })
+
+            return { message_list, page_is_loading, password_input }
+        }
+    }).mount('#main-container')
+</script>
+
+<script>
+const _csrf = () => document.getElementById('csrf_token')?.value
+
+// ── Avatar upload ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    const input    = document.getElementById('avatarInput')
+    const dropArea = document.getElementById('avatarDropArea')
+    const status   = document.getElementById('avatarStatus')
+
+    if (!input) return
+
+    input.addEventListener('change', () => uploadAvatar(input.files[0]))
+
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('drag-over') })
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'))
+    dropArea.addEventListener('drop', e => {
+        e.preventDefault()
+        dropArea.classList.remove('drag-over')
+        if (e.dataTransfer.files[0]) uploadAvatar(e.dataTransfer.files[0])
+    })
+})
+
+function showStatus(msg, ok) {
+    const el = document.getElementById('avatarStatus')
+    el.style.display = 'block'
+    el.style.color   = ok ? 'var(--brand)' : '#dc2626'
+    el.textContent   = msg
+}
+
+function updatePreview(url) {
+    const initials = document.getElementById('avatarInitials')
+    let   preview  = document.getElementById('avatarPreview')
+
+    if (initials) initials.style.display = 'none'
+
+    if (!preview) {
+        preview = document.createElement('img')
+        preview.id        = 'avatarPreview'
+        preview.alt       = 'Avatar'
+        preview.className = 'avatar-upload-preview'
+        document.getElementById('avatarDropArea').prepend(preview)
+    }
+    preview.src = url
+}
+
+async function uploadAvatar(file) {
+    if (!file) return
+    showStatus('Uploading…', true)
+
+    const fd = new FormData()
+    fd.append('avatar', file)
+
+    try {
+        const res = await fetch('/account/avatar', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': _csrf() },
+            body: fd,
+        })
+        const data = await res.json()
+        if (res.ok) {
+            showStatus('✓ ' + data.message, true)
+            // Instant preview from FileReader
+            const reader = new FileReader()
+            reader.onload = e => updatePreview(e.target.result)
+            reader.readAsDataURL(file)
+        } else {
+            showStatus('✗ ' + data.message, false)
+        }
+    } catch {
+        showStatus('Upload failed', false)
+    }
+}
+
+async function removeAvatar() {
+    if (!confirm('Remove your profile picture?')) return
+    const res  = await fetch('/account/avatar', {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': _csrf() },
+    })
+    if (res.ok) window.location.reload()
+}
+</script>
+{% endblock %}

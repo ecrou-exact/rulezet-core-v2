@@ -1,0 +1,99 @@
+/*---LOGIN_LAYOUT---*/
+
+body {
+    background-color: var(--bg-body);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+/*---LOGIN_CARD---*/
+
+.login-card {
+    width: 100%;
+    max-width: 380px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.25rem 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+[data-bs-theme="dark"] .login-card {
+    box-shadow: var(--shadow-lg);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 1.75rem;
+}
+
+.login-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: var(--bs-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.875rem;
+    font-size: 1.25rem;
+    color: #ffffff;
+}
+
+.login-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.25rem;
+}
+
+.login-subtitle {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/*---LOGIN_FORM---*/
+
+.login-form .form-control {
+    background-color: var(--bg-body);
+    border-color: var(--border);
+    color: var(--text-main);
+    border-radius: 8px;
+}
+
+[data-bs-theme="dark"] .login-form .form-control {
+    background-color: var(--bg-elevated);
+}
+
+.login-form .form-control:focus {
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+[data-bs-theme="dark"] .login-form .form-control:focus {
+    background-color: var(--bg-elevated);
+}
+
+.login-form .form-floating label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.login-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.25rem 0;
+}
+
+.login-footer-text {
+    text-align: center;
+    font-size: 0.775rem;
+    color: var(--text-muted);
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+}

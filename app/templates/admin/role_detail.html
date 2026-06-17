@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ role.name if role else 'New role' }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/roles.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/user_detail.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="/admin/roles">Roles</a></li>
+                        <li class="breadcrumb-item active">[[ role.name || 'New role' ]]</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">[[ role.name || 'New role' ]]</h1>
+            </div>
+            <div class="page-actions">
+                <a href="/admin/roles" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back
+                </a>
+                <button class="btn btn-sm btn-primary" @click="save" :disabled="saving">
+                    <i class="fas fa-check me-1"></i>[[ saving ? 'Saving…' : 'Save' ]]
+                </button>
+            </div>
+        </div>
+
+        <div class="page-body">
+            <div class="row g-3">
+
+                {# ── Left — permissions ── #}
+                <div class="col-12 col-lg-8">
+
+                    {# Admin notice #}
+                    <div v-if="role.admin"
+                         class="d-flex align-items-center gap-2 mb-3 p-3"
+                         style="background:var(--brand-dim);border:1px solid var(--brand-glow);border-radius:var(--radius-md);font-size:.83rem;color:var(--brand);">
+                        <i class="fas fa-shield-halved fa-fw"></i>
+                        <span><strong>Super Admin</strong> flag is active — permissions below are ignored. This role has full access.</span>
+                    </div>
+
+                    {# Permission groups #}
+                    {% for group, perms in permissions_by_group.items() %}
+                    <div class="card mb-3" :class="{ 'opacity-50': role.admin }">
+                        <div class="card-body">
+                            <p class="ud-section-title">{{ group }}</p>
+                            {% for perm in perms %}
+                            <div class="role-perm-row"
+                                 :class="{ 'is-checked': hasPermission('{{ perm.key }}') }"
+                                 @click="!role.admin && togglePermission('{{ perm.key }}')">
+                                <div class="role-perm-icon">
+                                    <i class="fas {{ perm.icon }}"></i>
+                                </div>
+                                <div class="role-perm-text">
+                                    <p class="role-perm-label">{{ perm.label }}</p>
+                                    <p class="role-perm-desc">{{ perm.description }}</p>
+                                </div>
+                                <div class="role-perm-check">
+                                    <i v-if="hasPermission('{{ perm.key }}')" class="fas fa-check"></i>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                </div>
+
+                {# ── Right — role info + appearance ── #}
+                <div class="col-12 col-lg-4">
+
+                    {# Info #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Role info</p>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size:.78rem;font-weight:600;">Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm"
+                                       v-model="role.name" placeholder="e.g. Editor" maxlength="64">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size:.78rem;font-weight:600;">Description</label>
+                                <textarea class="form-control form-control-sm"
+                                          v-model="role.description"
+                                          placeholder="What can this role do?"
+                                          rows="2" maxlength="255"></textarea>
+                            </div>
+
+                            <div class="role-toggle-row">
+                                <div>
+                                    <div class="role-toggle-label">Super Admin</div>
+                                    <div class="role-toggle-desc">Full access — bypasses all permission checks</div>
+                                </div>
+                                <label class="role-toggle-switch">
+                                    <input type="checkbox" v-model="role.admin">
+                                    <span class="role-toggle-track"></span>
+                                </label>
+                            </div>
+
+                            <div class="role-toggle-row">
+                                <div>
+                                    <div class="role-toggle-label">Read only</div>
+                                    <div class="role-toggle-desc">Visual indicator only</div>
+                                </div>
+                                <label class="role-toggle-switch">
+                                    <input type="checkbox" v-model="role.read_only">
+                                    <span class="role-toggle-track"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Appearance #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Appearance</p>
+
+                            {# Live preview #}
+                            <div class="d-flex align-items-center gap-2 mb-3 p-2"
+                                 style="background:var(--bg-elevated);border-radius:var(--radius-md);border:1px solid var(--border-subtle);">
+                                <span class="role-preview-badge" :style="previewBadgeStyle">
+                                    <i :class="'fas ' + role.icon" style="font-size:.65rem;"></i>
+                                    [[ role.name || 'Preview' ]]
+                                </span>
+                                <span style="font-size:.72rem;color:var(--text-muted);">Badge preview</span>
+                            </div>
+
+                            {# Color picker #}
+                            <div class="mb-3">
+                                <div style="font-size:.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:.5rem;">Color</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button v-for="(c, key) in COLOR_MAP" :key="key"
+                                            class="role-color-swatch"
+                                            :class="{ 'is-selected': role.color === key }"
+                                            :style="{ background: c.color }"
+                                            :title="key"
+                                            @click="role.color = key">
+                                        <i v-if="role.color === key" class="fas fa-check" style="font-size:.6rem;color:#fff;"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# Icon picker #}
+                            <div>
+                                <div style="font-size:.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:.5rem;">Icon</div>
+                                <div class="role-icon-grid">
+                                    <button v-for="ic in ICONS" :key="ic"
+                                            class="role-icon-btn"
+                                            :class="{ 'is-selected': role.icon === ic }"
+                                            :title="ic"
+                                            @click="role.icon = ic">
+                                        <i :class="'fas ' + ic"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {# Summary #}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="ud-section-title">Summary</p>
+                            <div style="font-size:.82rem;color:var(--text-secondary);">
+                                <div v-if="role.admin">
+                                    <i class="fas fa-shield-halved me-1" style="color:var(--brand);"></i>
+                                    Full access to the entire application.
+                                </div>
+                                <div v-else-if="selected.size === 0">
+                                    <i class="fas fa-circle-xmark me-1" style="color:var(--text-muted);"></i>
+                                    No permissions assigned — very limited access.
+                                </div>
+                                <div v-else>
+                                    <i class="fas fa-circle-check me-1" style="color:var(--brand);"></i>
+                                    [[ selected.size ]] active permission[[ selected.size > 1 ? 's' : '' ]].
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if role %}
+                    <div class="card" v-if="!role.protected">
+                        <div class="card-body">
+                            <p class="ud-section-title">Danger zone</p>
+                            <button class="btn btn-sm btn-outline-danger w-100" @click="deleteRole">
+                                <i class="fas fa-trash me-1"></i>Delete this role
+                            </button>
+                            <p class="text-muted mt-2 mb-0" style="font-size:.72rem;">
+                                Users with this role will be moved to Read Only.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card" v-else>
+                        <div class="card-body">
+                            <p class="ud-section-title">Protected role</p>
+                            <p class="text-muted mb-0" style="font-size:.78rem;">
+                                <i class="fas fa-lock me-1"></i>
+                                This role is protected and cannot be deleted.
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const ROLE_ID   = {{ role.id | tojson if role else 'null' }}
+    const ROLE_DATA = {{ role.to_json() | tojson if role else '{"name":"","description":"","admin":false,"read_only":false,"color":"gray","icon":"fa-user","permissions":[]}' | safe }}
+</script>
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+    import { message_list, create_message } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    const COLOR_MAP = {
+        brand:  { bg: 'var(--brand-dim)',        color: 'var(--brand)',          border: 'var(--brand-glow)' },
+        blue:   { bg: 'rgba(59,130,246,.13)',     color: '#3b82f6',               border: 'rgba(59,130,246,.3)' },
+        green:  { bg: 'rgba(34,197,94,.13)',      color: '#22c55e',               border: 'rgba(34,197,94,.3)' },
+        red:    { bg: 'rgba(239,68,68,.13)',      color: '#ef4444',               border: 'rgba(239,68,68,.3)' },
+        orange: { bg: 'rgba(249,115,22,.13)',     color: '#f97316',               border: 'rgba(249,115,22,.3)' },
+        purple: { bg: 'rgba(168,85,247,.13)',     color: '#a855f7',               border: 'rgba(168,85,247,.3)' },
+        gray:   { bg: 'var(--bg-elevated)',       color: 'var(--text-secondary)', border: 'var(--border)' },
+    }
+
+    const ICONS = [
+        'fa-user', 'fa-users', 'fa-shield-halved', 'fa-star', 'fa-crown',
+        'fa-key', 'fa-lock', 'fa-eye', 'fa-pen', 'fa-code',
+        'fa-gear', 'fa-briefcase', 'fa-graduation-cap', 'fa-bolt',
+        'fa-leaf', 'fa-heart', 'fa-rocket', 'fa-palette',
+    ]
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            const saving = ref(false)
+
+            const role = ref({
+                name:        ROLE_DATA.name        || '',
+                description: ROLE_DATA.description || '',
+                admin:       ROLE_DATA.admin        || false,
+                read_only:   ROLE_DATA.read_only    || false,
+                protected:   ROLE_DATA.protected    || false,
+                color:       ROLE_DATA.color        || 'gray',
+                icon:        ROLE_DATA.icon         || 'fa-user',
+            })
+
+            const selected = ref(new Set(ROLE_DATA.permissions || []))
+
+            const previewBadgeStyle = computed(() => {
+                const c = COLOR_MAP[role.value.color] || COLOR_MAP.gray
+                return {
+                    background:   c.bg,
+                    color:        c.color,
+                    border:       `1px solid ${c.border}`,
+                    display:      'inline-flex',
+                    alignItems:   'center',
+                    gap:          '.3rem',
+                    padding:      '.18rem .55rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize:     '.75rem',
+                    fontWeight:   '600',
+                }
+            })
+
+            function hasPermission(key) { return selected.value.has(key) }
+
+            function togglePermission(key) {
+                const s = new Set(selected.value)
+                s.has(key) ? s.delete(key) : s.add(key)
+                selected.value = s
+            }
+
+            async function save() {
+                if (!role.value.name.trim()) {
+                    await create_message('Name is required', TOAST.ERROR, true)
+                    return
+                }
+                saving.value = true
+                const payload = {
+                    name:        role.value.name.trim(),
+                    description: role.value.description.trim(),
+                    admin:       role.value.admin,
+                    read_only:   role.value.read_only,
+                    color:       role.value.color,
+                    icon:        role.value.icon,
+                    permissions: [...selected.value],
+                }
+                const url    = ROLE_ID ? `/api/roles/${ROLE_ID}` : '/api/roles/'
+                const method = ROLE_ID ? 'PUT' : 'POST'
+                const res    = await apiFetch(url, method, payload)
+                const data   = await res.json()
+                saving.value = false
+                if (res.ok) {
+                    await create_message('Role saved', TOAST.SUCCESS, false)
+                    if (!ROLE_ID && data.id) window.location.href = `/admin/roles/${data.id}`
+                } else {
+                    await create_message(data.message || 'Error', TOAST.ERROR, true)
+                }
+            }
+
+            async function deleteRole() {
+                if (!confirm('Delete this role? This cannot be undone.')) return
+                const res  = await apiFetch(`/api/roles/${ROLE_ID}`, 'DELETE')
+                const data = await res.json()
+                if (res.ok) window.location.href = '/admin/roles'
+                else await create_message(data.message || 'Error', TOAST.ERROR, true)
+            }
+
+            onMounted(() => { page_is_loading.value = true })
+
+            return {
+                message_list, page_is_loading, saving,
+                role, selected, COLOR_MAP, ICONS,
+                previewBadgeStyle, hasPermission, togglePermission,
+                save, deleteRole,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}
