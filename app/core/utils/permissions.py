@@ -76,14 +76,6 @@ PERMISSIONS: dict[str, dict] = {
         'icon':        'fa-sliders',
     },
 
-    # ── Template Studio ──────────────────────────────────────────────────────
-    'template_studio.manage': {
-        'label':       'Manage Template Studio',
-        'description': 'Create, edit, publish and delete dynamic pages (admin only by default).',
-        'group':       'Template Studio',
-        'icon':        'fa-wand-magic-sparkles',
-    },
-
     # ── Tags ─────────────────────────────────────────────────────────────────
     'tags.view': {
         'label':       'View tags',

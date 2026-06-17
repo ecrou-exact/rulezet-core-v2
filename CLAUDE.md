@@ -97,9 +97,19 @@ app/
   core/
     db_class/
       comment.py             # Comment (threading: parent_id/depth/root_id, soft-delete) + CommentReaction
+                             # Polymorphic: object_type='rule' + object_id=rule.id for rule comments
       custom_theme.py        # CustomTheme — custom + built-in overrides, is_public visibility
       job.py                 # Job — status, progress, logs, result, duration
       tag.py                 # Tag — source(custom|taxonomy|galaxy|vulnerability), color, icon, is_public
+      rule/                  # All rule-related models (see "Rule domain" section below)
+        __init__.py          # Exports: FormatRule, Rule, RuleTag, RuleCVE, RuleFavoriteUser, RuleEditProposal, RuleHistory
+        format_rule.py       # FormatRule — detection rule formats (YARA, Sigma, Suricata…)
+        rule.py              # Rule — main detection rule model
+        rule_tag.py          # RuleTag — Rule ↔ Tag many-to-many
+        rule_cve.py          # RuleCVE — structured CVE records linked to a rule
+        rule_favorite.py     # RuleFavoriteUser — user favorites
+        rule_edit_proposal.py # RuleEditProposal — PR-style edit proposals
+        rule_history.py      # RuleHistory — immutable version snapshots
     utils/
       job_runner.py          # ThreadPoolExecutor daemon, JobContext, register_handler(), enqueue_job()
   api/
@@ -426,3 +436,171 @@ Every feature must be easy to update later. Before writing code, ask:
 - Can I restrict access to a role without rewriting the view?
 
 If the answer to any of these is no, rethink the structure.
+
+---
+
+## Rule domain
+
+Rulezet's core object is a **detection rule** (YARA, Sigma, Suricata, Zeek, Wazuh, NSE, CRS, Nova).
+All rule-related models live in `app/core/db_class/rule/`.
+
+### FormatRule (`format_rule` table)
+
+Canonical list of supported formats. Rules reference a format by `format_id` FK, not a raw string.
+
+```python
+from app.core.db_class.rule import FormatRule
+
+# Fields
+id, uuid                  # identity
+name                      # unique format name e.g. "yara", "sigma"
+description               # human description
+file_extension            # "yar", "yml", "rules", "zeek", "xml"…
+icon                      # FA class e.g. "fa-shield-halved"
+color                     # hex e.g. "#FF6B2B"
+can_be_executed           # True if the platform can run this format
+is_builtin                # True for platform-seeded formats
+user_id / creator         # who added it (null for built-in)
+is_active / deleted_at    # soft delete
+
+# Methods
+f.get_rule_count()        # active rules using this format
+f.to_json()               # full JSON (includes rule_count)
+f.to_json_light()         # lightweight (no DB query)
+```
+
+### Rule (`rule` table)
+
+Main detection rule. **Never store the format as a string** — always use `format_id`.
+
+```python
+from app.core.db_class.rule import Rule
+
+# Key fields
+id, uuid, original_uuid   # identity (original_uuid = UUID on the source instance)
+title, description        # human-readable
+content                   # raw rule body (YARA/Sigma/Suricata text)
+rule_hash                 # SHA-256 of content — call rule.compute_hash() before commit
+format_id                 # FK → format_rule.id  ← always use this, never a raw string
+version, status           # "stable" | "test" | "experimental" | "deprecated"
+severity                  # "critical" | "high" | "medium" | "low" | "info"
+confidence                # "high" | "medium" | "low"
+platforms                 # JSON list ["windows", "linux", "macos", "network"…]
+mitre_attack              # JSON list ["T1059", "T1059.001"…]
+references                # JSON list of URLs
+false_positives           # text description of known FPs
+author                    # original author string (from rule metadata)
+license, source           # attribution
+github_path               # path in source repo
+creation_date, last_modif # dates from the rule itself (not platform dates)
+user_id / submitter       # who imported it on this platform
+vote_up, vote_down        # community votes
+is_public                 # visibility
+is_verified               # admin/community verified
+connector_id              # FK → connector (if imported via connector)
+remote_rule_uuid          # UUID on the remote instance
+sync_instance_url         # URL of the source instance (persisted even if connector deleted)
+is_deleted / deleted_at / deleted_by_id / delete_batch_uuid   # soft delete
+
+# Properties
+rule.format               # → format_rule.name (e.g. "yara") — convenience, not a DB column
+rule.format_uuid          # → format_rule.uuid
+
+# Methods
+rule.compute_hash()       # SHA-256 of content — call before saving
+rule.get_extension()      # file extension from FormatRule.file_extension
+rule.to_json()            # list-view serialisation
+rule.to_json_detail()     # full detail page serialisation (nested: identity/content/authorship/…)
+```
+
+**Soft delete pattern** (Rule uses `is_deleted`, not `is_active`):
+```python
+rule.is_deleted    = True
+rule.deleted_at    = datetime.utcnow()
+rule.deleted_by_id = current_user.id
+```
+Always filter: `Rule.query.filter_by(is_deleted=False)`.
+
+### RuleTag (`rule_tag` table)
+
+Many-to-many between `Rule` and the existing `Tag` model.
+
+```python
+assoc = RuleTag(rule_id=rule.id, tag_id=tag.id, created_by=uid)
+# rule.rule_tags_assocs  → dynamic relationship
+# assoc.to_json()        → delegates to tag.to_json()
+```
+
+### RuleCVE (`rule_cve` table)
+
+Structured CVE records linked to a rule. **Do not use the old `cve_id` string field** (removed).
+
+```python
+cve = RuleCVE(
+    rule_id=rule.id, cve_id="CVE-2024-1234",
+    cvss_score=9.8, cvss_vector="CVSS:3.1/AV:N/...",
+    severity="critical", description="...",
+)
+# rule.cve_records  → dynamic relationship
+```
+
+### RuleFavoriteUser (`rule_favorite_user` table)
+
+```python
+fav = RuleFavoriteUser(rule_id=rule.id, user_id=uid)
+# rule.favorited_by_users_assocs  → dynamic relationship
+```
+
+### RuleEditProposal (`rule_edit_proposal` table)
+
+PR-style proposals. Capture the rule state at proposal time.
+
+```python
+proposal = RuleEditProposal(
+    rule_id=rule.id, user_id=uid,
+    title="Fix false positive in condition",
+    motivation="...",
+    proposed_content="...",          # new rule body
+    proposed_description="...",
+    previous_content=rule.content,   # ← always snapshot the current content
+    previous_version=rule.version,   # ← always snapshot the current version
+    diff_fields={"condition": "new value"},
+    status="pending",
+)
+# Statuses: pending | accepted | rejected | withdrawn
+# rule.edit_proposals  → dynamic relationship
+```
+
+### RuleHistory (`rule_history` table)
+
+Immutable version log — **one row per change**, never updated. Use `RuleHistory.record()`.
+
+```python
+# Call this BEFORE committing the rule change, so previous_content is captured correctly
+entry = RuleHistory.record(
+    rule,
+    change_type="edit",           # import|edit|proposal|sync|restore|bulk_import
+    change_summary="Fixed logic", # optional short label
+    changed_by=uid,
+    proposal_id=proposal.id,      # if coming from an accepted proposal
+)
+db.session.add(entry)
+db.session.commit()
+
+# Fields stored per snapshot
+version_num       # auto-incremented per rule (1, 2, 3…)
+previous_content  # content BEFORE this change
+previous_version  # version string BEFORE this change
+content           # content AT this snapshot
+content_hash      # SHA-256 of content
+snapshot          # JSON: {title, description, format_id, format, severity, status, author, version, platforms, mitre_attack}
+# rule.version_history  → dynamic relationship, ordered version_num DESC
+```
+
+### Comments on rules
+
+Use the existing polymorphic `Comment` model — **no separate table needed**:
+```python
+Comment(object_type='rule', object_id=rule.id, ...)
+Comment.query.filter_by(object_type='rule', object_id=rule.id, is_active=True)
+```

@@ -20,7 +20,6 @@ _ADMIN_RELATED_PERMS = {
     'logs.view', 'logs.delete',
     'jobs.manage',
     'tags.view', 'tags.manage',
-    'template_studio.manage',
     'connectors.view', 'connectors.manage',
 }
 
