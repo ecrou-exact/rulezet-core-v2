@@ -1,0 +1,150 @@
+/*---HEADER---*/
+.rc-header {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 1.4rem 1.5rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+}
+.rc-logo {
+    font-size: 2.2rem;
+    color: var(--brand);
+    flex-shrink: 0;
+}
+.rc-title { font-size: 1.4rem; font-weight: 700; margin: 0; line-height: 1.2; }
+.rc-subtitle { font-size: .82rem; color: var(--text-muted); margin: .15rem 0 0; }
+.rc-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+.rc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .55rem;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.rc-badge--version  { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+.rc-badge--commit   { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border); font-family: ui-monospace, monospace; }
+.rc-badge--formats  { background: color-mix(in srgb, #27ae60 12%, transparent); color: #27ae60; border-color: color-mix(in srgb, #27ae60 30%, transparent); }
+.rc-badge--python   { background: color-mix(in srgb, #3498db 12%, transparent); color: #3498db; border-color: color-mix(in srgb, #3498db 30%, transparent); }
+.rc-badge--license  { background: var(--bg-elevated); color: var(--text-muted); border-color: var(--border); }
+
+/*---GRID---*/
+.rc-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 960px) { .rc-grid { grid-template-columns: 1fr; } }
+
+/*---CARD---*/
+.rc-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.25rem;
+    overflow: visible;
+}
+.rc-card-header {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .75rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    overflow: hidden;
+}
+.rc-card-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--brand) 12%, transparent);
+    color: var(--brand);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .85rem;
+    flex-shrink: 0;
+}
+.rc-card-title { font-size: .9rem; font-weight: 600; margin: 0; }
+.rc-card-body  { padding: 1rem 1.1rem; }
+
+/*---FORMAT TABLE---*/
+.rc-format-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.rc-format-table th {
+    text-align: left;
+    padding: .45rem .7rem;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+}
+.rc-format-table th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+.rc-format-table th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
+.rc-format-table td {
+    padding: .5rem .7rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+.rc-format-table tr:last-child td { border-bottom: none; }
+.rc-format-table tr:hover td { background: var(--bg-hover); }
+.rc-format-name { font-weight: 600; }
+.rc-format-ext  { font-family: ui-monospace, monospace; font-size: .75rem; color: var(--text-muted); }
+.rc-format-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .15rem .45rem;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 600;
+    background: color-mix(in srgb, #27ae60 12%, transparent);
+    color: #27ae60;
+    border: 1px solid color-mix(in srgb, #27ae60 30%, transparent);
+}
+
+/*---GIT INFO---*/
+.rc-git-row {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .83rem;
+}
+.rc-git-row:last-child { border-bottom: none; }
+.rc-git-label { color: var(--text-muted); font-size: .75rem; min-width: 100px; flex-shrink: 0; }
+.rc-git-value { color: var(--text-main); word-break: break-all; }
+.rc-git-mono  { font-family: ui-monospace, monospace; font-size: .78rem; color: var(--text-secondary); }
+
+/*---REQUIREMENTS---*/
+.rc-req-list { list-style: none; padding: 0; margin: 0; }
+.rc-req-item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .82rem;
+    font-family: ui-monospace, monospace;
+}
+.rc-req-item:last-child { border-bottom: none; }
+.rc-req-item i { color: var(--text-muted); font-size: .7rem; flex-shrink: 0; }
+
+/*---UNAVAILABLE---*/
+.rc-unavailable {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+}
+.rc-unavailable i { font-size: 2.5rem; opacity: .4; margin-bottom: 1rem; display: block; }
+.rc-unavailable p { margin: 0; font-size: .9rem; }

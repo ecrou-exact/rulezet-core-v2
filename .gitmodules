@@ -7,3 +7,6 @@
 [submodule "modules/pivotick"]
 	path = modules/pivotick
 	url = https://github.com/Pivotick/Pivotick.git
+[submodule "modules/rulezet-cast"]
+	path = modules/rulezet-cast
+	url = https://github.com/rulezet/rulezet-cast.git

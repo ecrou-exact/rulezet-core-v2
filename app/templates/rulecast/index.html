@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rulecast/rulecast.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item active">RuleCast</li>
+                    </ol>
+                </nav>
+                <h1 class="page-title">
+                    <i class="fas fa-hexagon-nodes me-2" style="font-size:.85em;opacity:.7;"></i>RuleCast
+                </h1>
+            </div>
+        </div>
+
+        {% if not info.get('available') %}
+        <div class="rc-unavailable">
+            <i class="fas fa-triangle-exclamation"></i>
+            <p><strong>RuleCast submodule not available.</strong><br>
+            {{ info.get('error', 'Run git submodule update --init to initialize it.') }}</p>
+        </div>
+
+        {% else %}
+
+        {# ── Project header ── #}
+        <div class="rc-header">
+            <div class="rc-logo"><i class="fas fa-hexagon-nodes"></i></div>
+            <div>
+                <h2 class="rc-title">RuleCast</h2>
+                <p class="rc-subtitle">Security rule parser &amp; normalizer — converts multi-format detection signatures into structured JSON.</p>
+                <div class="rc-badges">
+                    <span class="rc-badge rc-badge--version">
+                        <i class="fas fa-tag"></i>v{{ info.version }}
+                    </span>
+                    <span class="rc-badge rc-badge--commit">
+                        <i class="fas fa-code-commit"></i>{{ info.commit }}
+                    </span>
+                    <span class="rc-badge rc-badge--formats">
+                        <i class="fas fa-shapes"></i>{{ info.format_count }} formats
+                    </span>
+                    <span class="rc-badge rc-badge--python">
+                        <i class="fab fa-python"></i>Python 3.11+
+                    </span>
+                    <span class="rc-badge rc-badge--license">
+                        <i class="fas fa-scale-balanced"></i>MIT
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="rc-grid">
+
+            {# ── LEFT COLUMN ── #}
+            <div>
+
+                {# Supported formats #}
+                <div class="rc-card">
+                    <div class="rc-card-header">
+                        <span class="rc-card-icon"><i class="fas fa-shapes"></i></span>
+                        <h3 class="rc-card-title">Supported formats</h3>
+                    </div>
+                    <div class="rc-card-body" style="padding:0;">
+                        <table class="rc-format-table">
+                            <thead>
+                                <tr>
+                                    <th>Format</th>
+                                    <th>Extension(s)</th>
+                                    <th>Parser file</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fmt in info.formats %}
+                                <tr>
+                                    <td><span class="rc-format-name">{{ fmt.name }}</span></td>
+                                    <td><span class="rc-format-ext">{{ fmt.extension }}</span></td>
+                                    <td><span class="rc-format-ext">{{ fmt.file }}</span></td>
+                                    <td>
+                                        {% if fmt.present %}
+                                        <span class="rc-format-status">
+                                            <i class="fas fa-check"></i>{{ fmt.status }}
+                                        </span>
+                                        {% else %}
+                                        <span class="rc-format-status" style="background:color-mix(in srgb,#e74c3c 12%,transparent);color:#e74c3c;border-color:color-mix(in srgb,#e74c3c 30%,transparent);">
+                                            <i class="fas fa-xmark"></i>missing
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>{# /left #}
+
+            {# ── RIGHT COLUMN ── #}
+            <div>
+
+                {# Git info #}
+                <div class="rc-card">
+                    <div class="rc-card-header">
+                        <span class="rc-card-icon"><i class="fab fa-git-alt"></i></span>
+                        <h3 class="rc-card-title">Repository</h3>
+                    </div>
+                    <div class="rc-card-body">
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Version</span>
+                            <span class="rc-git-value"><strong>{{ info.version }}</strong>
+                                {% if info.describe != info.version %}
+                                <span class="rc-git-mono ms-1">{{ info.describe }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Commit</span>
+                            <span class="rc-git-mono">{{ info.commit }}</span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Message</span>
+                            <span class="rc-git-value" style="font-size:.8rem;">{{ info.commit_msg }}</span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Date</span>
+                            <span class="rc-git-value" style="font-size:.8rem;">{{ info.commit_date }}</span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Branch</span>
+                            <span class="rc-git-mono">{{ info.branch }}</span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Remote</span>
+                            <span class="rc-git-value" style="font-size:.75rem;word-break:break-all;">
+                                <a href="{{ info.remote_url }}" target="_blank" rel="noopener">
+                                    {{ info.remote_url }}
+                                    <i class="fas fa-arrow-up-right-from-square ms-1" style="font-size:.6rem;opacity:.5;"></i>
+                                </a>
+                            </span>
+                        </div>
+                        <div class="rc-git-row">
+                            <span class="rc-git-label">Path</span>
+                            <span class="rc-git-mono" style="font-size:.72rem;">{{ info.path }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {# Dependencies #}
+                <div class="rc-card">
+                    <div class="rc-card-header">
+                        <span class="rc-card-icon"><i class="fas fa-cubes"></i></span>
+                        <h3 class="rc-card-title">Dependencies</h3>
+                    </div>
+                    <div class="rc-card-body" style="padding:.5rem 1.1rem;">
+                        {% if info.requirements %}
+                        <ul class="rc-req-list">
+                            {% for req in info.requirements %}
+                            <li class="rc-req-item">
+                                <i class="fas fa-cube"></i>{{ req }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted" style="font-size:.83rem;margin:0;">No requirements.txt found.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>{# /right #}
+
+        </div>{# /rc-grid #}
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, onMounted } = Vue
+    import { message_list } from '/static/js/toaster.js'
+    import LoadingBar from '/static/js/components/loading-bar.js'
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar },
+        setup() {
+            const page_is_loading = ref(false)
+            onMounted(async () => { page_is_loading.value = true })
+            return { message_list, page_is_loading }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

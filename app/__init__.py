@@ -83,6 +83,7 @@ def create_app():
     from .features.tags.tags import tags_blueprint
     from .features.connectors.connectors import connectors_blueprint
     from .features.rules.rules import rules_blueprint
+    from .features.rulecast.rulecast import rulecast_blueprint
     app.register_blueprint(home_blueprint, url_prefix="/")
     app.register_blueprint(account_blueprint, url_prefix="/account")
     app.register_blueprint(config_blueprint, url_prefix="/")
@@ -93,6 +94,7 @@ def create_app():
     app.register_blueprint(tags_blueprint, url_prefix="/tags")
     app.register_blueprint(connectors_blueprint, url_prefix="/connectors")
     app.register_blueprint(rules_blueprint, url_prefix="/rules")
+    app.register_blueprint(rulecast_blueprint, url_prefix="/admin/rulecast")
 
     from .api.api import api_blueprint
     csrf.exempt(api_blueprint)
@@ -185,6 +187,10 @@ def create_app():
     _root = os.path.normpath(os.path.join(app.root_path, '..'))
     from .core.utils.licenses import ensure_licenses_file as _ensure_lic
     _ensure_lic(_root)
+
+    # Initialize RuleCast submodule metadata cache
+    from .core.utils.rulecast import init_rulecast as _init_rulecast
+    _init_rulecast(_root)
 
     # Auto-initialize git submodules if any are empty
     _auto_init_submodules(app)

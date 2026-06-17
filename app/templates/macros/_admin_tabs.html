@@ -49,6 +49,10 @@
     {% endif %}
 
     {% if current_user.is_admin() %}
+    <a href="/admin/rulecast/"
+       class="admin-tab {% if request.path.startswith('/admin/rulecast') %}is-active{% endif %}">
+        <i class="fas fa-hexagon-nodes"></i><span>RuleCast</span>
+    </a>
     <a href="/admin/settings"
        class="admin-tab {% if request.path.startswith('/admin/settings') and not request.path.startswith('/admin/settings/database') %}is-active{% endif %}">
         <i class="fas fa-server"></i><span>Server</span>
