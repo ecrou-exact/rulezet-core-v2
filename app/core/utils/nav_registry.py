@@ -61,13 +61,6 @@ NAV: list[dict] = [
     # ── Community (public — accessible without login) ──────────────────────────
     {
         'group':      'Community',
-        'label':      'Forum',
-        'icon':       'fa-comments',
-        'href':       '/comments/',
-        'permission': 'public',
-    },
-    {
-        'group':      'Community',
         'label':      'Component Lab',
         'icon':       'fa-flask',
         'href':       '/lab/components',
