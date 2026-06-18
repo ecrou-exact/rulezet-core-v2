@@ -103,6 +103,50 @@ def get_formats_for_db() -> list[dict]:
     ]
 
 
+def _find_cast_python(mod_path: str) -> tuple[str, str]:
+    """
+    Return (python_executable, cast_directory) — the python that can
+    successfully run RuleCast and the directory it should run from.
+
+    Tries the submodule venv first, then any sibling directory named
+    rulezet-cast (local dev copy) walking up the tree.
+    Falls back to ('python3', mod_path).
+    """
+    def _probe(py: str, directory: str) -> bool:
+        try:
+            r = subprocess.run(
+                [py, '-c',
+                 f'import sys; sys.path.insert(0,"{directory}"); '
+                 'from parsers import ALL_PARSERS; print(len(ALL_PARSERS))'],
+                capture_output=True, text=True, timeout=10,
+            )
+            return r.returncode == 0 and r.stdout.strip().isdigit()
+        except Exception:
+            return False
+
+    # 1. Submodule venv
+    sub_py = os.path.join(mod_path, 'venv', 'bin', 'python')
+    if os.path.isfile(sub_py) and _probe(sub_py, mod_path):
+        return sub_py, mod_path
+
+    # 2. Walk up from mod_path looking for a sibling named rulezet-cast
+    search_root = mod_path
+    for _ in range(5):
+        search_root = os.path.dirname(search_root)
+        if not search_root or search_root == '/':
+            break
+        for name in ('rulezet-cast', 'RuleCast', 'rulecast'):
+            candidate_dir = os.path.join(search_root, name)
+            if not os.path.isdir(candidate_dir):
+                continue
+            for py_name in ('venv/bin/python', 'venv/bin/python3'):
+                py = os.path.join(candidate_dir, py_name)
+                if os.path.isfile(py) and _probe(py, candidate_dir):
+                    return py, candidate_dir
+
+    return 'python3', mod_path
+
+
 def init_rulecast(root: str) -> None:
     """Populate _info from the modules/rulezet-cast/ submodule."""
     global _info
@@ -139,9 +183,13 @@ def init_rulecast(root: str) -> None:
         with open(req_path) as f:
             requirements = [l.strip() for l in f if l.strip() and not l.startswith('#')]
 
+    python_path, cast_exec_dir = _find_cast_python(mod_path)
+
     _info = {
         'available':    True,
         'path':         mod_path,
+        'python_path':  python_path,
+        'cast_exec_dir': cast_exec_dir,
         'version':      version,
         'describe':     describe,
         'commit':       commit,

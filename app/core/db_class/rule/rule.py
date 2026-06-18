@@ -117,8 +117,10 @@ class Rule(db.Model):
 
     def compute_hash(self):
         if self.content:
-            return hashlib.sha256(self.content.encode('utf-8')).hexdigest()
-        return None
+            self.rule_hash = hashlib.sha256(self.content.encode('utf-8')).hexdigest()
+        else:
+            self.rule_hash = None
+        return self.rule_hash
 
     def get_extension(self):
         if self.format_rule and self.format_rule.file_extension:

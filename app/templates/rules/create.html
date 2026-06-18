@@ -73,7 +73,7 @@
                                 <div v-for="fmt in formats" :key="fmt.uuid"
                                      class="rf-format-card"
                                      :class="form.format_uuid === fmt.uuid ? 'is-active' : ''"
-                                     @click="form.format_uuid = fmt.uuid; form.content_language = fmt.name">
+                                     @click="form.format_uuid = fmt.uuid; form.content_language = HLJS_LANG[fmt.name.toLowerCase()] || 'plaintext'">
                                     <i :class="'fas ' + (fmt.icon || 'fa-shield-halved') + ' rf-format-icon'"
                                        :style="fmt.color ? 'color:' + fmt.color : ''"></i>
                                     <span class="rf-format-name">[[ fmt.name.toUpperCase() ]]</span>
@@ -158,6 +158,23 @@
                                           min-height="260px">
                             </smart-editor>
                             <p v-if="errors.content" class="rf-error">[[ errors.content ]]</p>
+
+                            <div v-if="rulecast_result && !rulecast_result.ok" class="rf-rulecast-errors">
+                                <div class="rf-rulecast-header">
+                                    <i class="fas fa-hexagon-nodes"></i>
+                                    RuleCast — [[ rulecast_result.invalid ]]/[[ rulecast_result.total ]] rule(s) invalid
+                                </div>
+                                <template v-for="(rc_rule, i) in rulecast_result.rules" :key="i">
+                                    <div v-if="!rc_rule.ok" class="rf-rulecast-rule">
+                                        <span class="rf-rulecast-rule-name">
+                                            <i class="fas fa-xmark"></i>[[ rc_rule.name ]]
+                                        </span>
+                                        <ul class="rf-rulecast-errs">
+                                            <li v-for="e in rc_rule.errors" :key="e">[[ e ]]</li>
+                                        </ul>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -530,6 +547,21 @@
     const FORMATS   = {{ formats | tojson }}
     const PLATFORMS = {{ platforms | tojson }}
 
+    // Maps FormatRule names (lowercase) to valid hljs language identifiers.
+    // Formats without a close hljs equivalent use 'plaintext' (no error logged).
+    const HLJS_LANG = {
+        'yara':     'c',           // C-ish syntax
+        'sigma':    'yaml',
+        'suricata': 'nginx',
+        'crs':      'nginx',
+        'nse':      'lua',
+        'nova':     'yaml',
+        'zeek':     'javascript',
+        'wazuh':    'xml',
+        'elastic':  'toml',
+        'atr':      'yaml',
+    }
+
     const STATUSES    = [
         { val: 'stable',       label: 'Stable' },
         { val: 'test',         label: 'Test' },
@@ -604,9 +636,10 @@
             })
 
             const desc_mode     = ref('text')
-            const errors        = reactive({})
-            const submitting    = ref(false)
-            const submit_error  = ref('')
+            const errors          = reactive({})
+            const submitting      = ref(false)
+            const submit_error    = ref('')
+            const rulecast_result = ref(null)
 
             // MITRE input
             const mitre_input = ref('')
@@ -788,23 +821,30 @@
                     cve_ids:         cve_ids.join(','),
                 }
 
-                const res = await apiFetch('/api/rules/', 'POST', payload)
-                submitting.value = false
+                try {
+                    const res = await apiFetch('/api/rules/', 'POST', payload)
+                    submitting.value = false
 
-                if (res.ok) {
-                    const d = await res.json()
-                    create_message('Rule created successfully', TOAST.SUCCESS)
-                    window.location.href = '/rules/'
-                } else {
-                    const d = await res.json()
+                    let d = {}
+                    try { d = await res.json() } catch (_) {}
+
                     if (d.errors) {
-                        Object.assign(errors, d.errors)
+                        // Validation errors (form or RuleCast) — display inline
+                        Object.keys(errors).forEach(k => delete errors[k])
+                        Object.keys(d.errors).forEach(k => { errors[k] = d.errors[k] })
+                        rulecast_result.value = d.rulecast || null
                         submit_error.value = 'Fix the highlighted errors and try again.'
                         await Vue.nextTick()
                         scrollToError(Object.keys(d.errors))
+                    } else if (res.ok && d.uuid) {
+                        create_message('Rule created successfully', TOAST.SUCCESS)
+                        window.location.href = '/rules/'
                     } else {
-                        submit_error.value = d.message || 'An error occurred.'
+                        submit_error.value = d.message || `Server error (${res.status})`
                     }
+                } catch (err) {
+                    submitting.value = false
+                    submit_error.value = 'Network error — please try again.'
                 }
             }
 
@@ -816,7 +856,7 @@
                 page_is_loading, message_list,
                 form, errors, submitting, submit_error,
                 desc_mode,
-                formats, all_platforms, statuses: STATUSES, severities: SEVERITIES, confidences: CONFIDENCES,
+                formats, all_platforms, statuses: STATUSES, severities: SEVERITIES, confidences: CONFIDENCES, HLJS_LANG,
                 mitre_input, mitre_error,
                 ref_input, ref_error,
                 incVersion, decVersion,
@@ -824,6 +864,7 @@
                 addMitre, removeMitre,
                 addRef, removeRef,
                 formatName, statusColor, focusField,
+                rulecast_result,
                 submitRule,
             }
         }

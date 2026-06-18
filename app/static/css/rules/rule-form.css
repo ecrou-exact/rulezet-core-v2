@@ -568,6 +568,48 @@
 .rf-vis-toggle.is-public { border-color: #27ae60; color: #27ae60; background: rgba(39,174,96,.06); }
 .rf-vis-toggle i { font-size: .8rem; }
 
+/*---RULECAST_ERRORS---*/
+.rf-rulecast-errors {
+    margin-top: .6rem;
+    border: 1px solid color-mix(in srgb, #e74c3c 35%, transparent);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    font-size: .82rem;
+}
+.rf-rulecast-header {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    background: color-mix(in srgb, #e74c3c 12%, transparent);
+    color: #e74c3c;
+    font-weight: 600;
+    font-size: .78rem;
+}
+.rf-rulecast-rule {
+    padding: .5rem .75rem;
+    border-top: 1px solid color-mix(in srgb, #e74c3c 15%, transparent);
+}
+.rf-rulecast-rule-name {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    font-weight: 600;
+    color: #e74c3c;
+    font-size: .78rem;
+    margin-bottom: .25rem;
+}
+.rf-rulecast-errs {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--text-secondary);
+}
+.rf-rulecast-errs li {
+    font-family: ui-monospace, monospace;
+    font-size: .74rem;
+    line-height: 1.6;
+}
+
 /*---DARK MODE---*/
 [data-bs-theme="dark"] .rf-submit-bar {
     box-shadow: 0 4px 24px rgba(0,0,0,.35);

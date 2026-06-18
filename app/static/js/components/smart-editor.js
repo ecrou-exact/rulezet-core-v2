@@ -275,10 +275,14 @@ export default {
             const code = inner_value.value
             if (!code) { highlighted.value = ''; return }
             try {
-                if (props.language === 'plaintext') {
+                const lang = props.language
+                if (lang === 'plaintext' || !lang) {
                     highlighted.value = escaped_code.value
+                } else if (window.hljs.getLanguage && window.hljs.getLanguage(lang)) {
+                    highlighted.value = window.hljs.highlight(code, { language: lang }).value
                 } else {
-                    highlighted.value = window.hljs.highlight(code, { language: props.language }).value
+                    // language not registered in this hljs build — auto-detect silently
+                    highlighted.value = window.hljs.highlightAuto(code).value
                 }
             } catch {
                 highlighted.value = window.hljs.highlightAuto(code).value

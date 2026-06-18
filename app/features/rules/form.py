@@ -8,11 +8,11 @@ all validator logic without duplicating it.
 import re
 from flask_wtf import FlaskForm
 from wtforms import (
-    StringField, TextAreaField, SelectField,
+    StringField, TextAreaField,
     BooleanField, HiddenField, SubmitField,
 )
 from wtforms.validators import (
-    InputRequired, DataRequired, Optional, Length, URL, ValidationError,
+    DataRequired, Optional, Length, ValidationError,
 )
 from flask_login import current_user
 
@@ -65,7 +65,7 @@ class RuleForm(FlaskForm):
 
     # ── Identity ──────────────────────────────────────────────────────────
     title = StringField('Title', validators=[
-        InputRequired(message='A title is required.'),
+        DataRequired(message='A title is required.'),
         Length(min=3, max=512, message='Title must be between 3 and 512 characters.'),
     ])
     original_uuid = StringField('Original UUID', validators=[
@@ -75,34 +75,16 @@ class RuleForm(FlaskForm):
 
     # ── Format & Classification ───────────────────────────────────────────
     format_id = StringField('Format', validators=[
-        InputRequired(message='Please select a format.'),
+        DataRequired(message='Please select a format.'),
     ])
     version = StringField('Version', validators=[
         Optional(),
         Length(max=32),
     ])
-    status = SelectField('Status', choices=[
-        ('stable',       'Stable'),
-        ('test',         'Test'),
-        ('experimental', 'Experimental'),
-        ('deprecated',   'Deprecated'),
-    ], validators=[DataRequired()])
+    status = StringField('Status', validators=[Optional()])
 
-    severity = SelectField('Severity', choices=[
-        ('',         '— not set —'),
-        ('critical', 'Critical'),
-        ('high',     'High'),
-        ('medium',   'Medium'),
-        ('low',      'Low'),
-        ('info',     'Info'),
-    ], validators=[Optional()])
-
-    confidence = SelectField('Confidence', choices=[
-        ('',       '— not set —'),
-        ('high',   'High'),
-        ('medium', 'Medium'),
-        ('low',    'Low'),
-    ], validators=[Optional()])
+    severity   = StringField('Severity',   validators=[Optional()])
+    confidence = StringField('Confidence', validators=[Optional()])
 
     # JSON-encoded lists submitted as strings
     platforms    = HiddenField('Platforms',     validators=[Optional()])   # JSON array string
@@ -110,7 +92,7 @@ class RuleForm(FlaskForm):
 
     # ── Content ───────────────────────────────────────────────────────────
     content = TextAreaField('Rule content', validators=[
-        InputRequired(message='Rule content is required.'),
+        DataRequired(message='Rule content is required.'),
         Length(min=10, message='Content seems too short (min 10 characters).'),
     ])
     description     = TextAreaField('Description',     validators=[Optional()])
@@ -139,12 +121,40 @@ class RuleForm(FlaskForm):
 
     # ── Custom validators ─────────────────────────────────────────────────
 
+    def validate_status(self, field):
+        v = (field.data or '').strip()
+        if v and v not in STATUSES:
+            raise ValidationError(f'Invalid status. Allowed: {", ".join(STATUSES)}.')
+
+    def validate_severity(self, field):
+        v = (field.data or '').strip()
+        if v and v not in SEVERITIES:
+            raise ValidationError(f'Invalid severity. Allowed: {", ".join(SEVERITIES)}.')
+
+    def validate_confidence(self, field):
+        v = (field.data or '').strip()
+        if v and v not in CONFIDENCES:
+            raise ValidationError(f'Invalid confidence. Allowed: {", ".join(CONFIDENCES)}.')
+
     def validate_title(self, field):
         from app.core.db_class.rule import Rule
         existing = Rule.query.filter_by(title=field.data, is_deleted=False).first()
         if existing:
             raise ValidationError(
-                f'A rule named "{field.data}" already exists (ID {existing.uuid}).'
+                f'A rule named "{field.data}" already exists ({existing.uuid}).'
+            )
+
+    def validate_content(self, field):
+        import hashlib
+        from app.core.db_class.rule import Rule
+        content = (field.data or '').strip()
+        if not content:
+            return
+        h = hashlib.sha256(content.encode('utf-8')).hexdigest()
+        existing = Rule.query.filter_by(rule_hash=h, is_deleted=False).first()
+        if existing:
+            raise ValidationError(
+                f'This rule content already exists: "{existing.title}" ({existing.uuid}).'
             )
 
     def validate_version(self, field):

@@ -52,24 +52,27 @@ def create_rule_core(data: dict, user_id: int):
             except ValueError:
                 pass
 
+        def _s(val, default=''):
+            return (val or default).strip()
+
         rule = Rule(
-            title           = data['title'].strip(),
-            content         = data.get('content', '').strip(),
-            description     = data.get('description', '').strip() or None,
+            title           = _s(data.get('title')),
+            content         = _s(data.get('content')),
+            description     = _s(data.get('description')) or None,
             format_id       = fmt.id,
-            version         = (data.get('version') or '1.0').strip(),
-            status          = data.get('status')     or 'stable',
-            severity        = data.get('severity')   or None,
-            confidence      = data.get('confidence') or None,
-            platforms       = data.get('platforms')  or [],
+            version         = _s(data.get('version')) or '1.0',
+            status          = _s(data.get('status')) or 'stable',
+            severity        = _s(data.get('severity')) or None,
+            confidence      = _s(data.get('confidence')) or None,
+            platforms       = data.get('platforms')    or [],
             mitre_attack    = data.get('mitre_attack') or [],
-            references      = data.get('references') or [],
-            false_positives = data.get('false_positives', '').strip() or None,
-            author          = data.get('author', '').strip()  or None,
-            license         = data.get('license', '').strip() or None,
-            source          = data.get('source', '').strip()  or None,
+            references      = data.get('references')   or [],
+            false_positives = _s(data.get('false_positives')) or None,
+            author          = _s(data.get('author'))   or None,
+            license         = _s(data.get('license'))  or None,
+            source          = _s(data.get('source'))   or None,
             is_public       = bool(data.get('is_public', True)),
-            original_uuid   = data.get('original_uuid', '').strip() or None,
+            original_uuid   = _s(data.get('original_uuid')) or None,
             creation_date   = creation_date,
             last_modif      = last_modif,
             user_id         = user_id,

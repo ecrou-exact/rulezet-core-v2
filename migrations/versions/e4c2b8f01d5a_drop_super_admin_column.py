@@ -16,6 +16,7 @@ depends_on = None
 
 
 def upgrade():
+    op.execute('PRAGMA foreign_keys=OFF')
     with op.batch_alter_table('user', schema=None) as batch_op:
         batch_op.drop_column('super_admin')
 
