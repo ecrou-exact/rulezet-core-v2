@@ -371,3 +371,22 @@
 .at-send-btn {
     flex-shrink: 0;
 }
+
+/*---AT_FULLSCREEN---*/
+
+.at--fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    border-radius: 0;
+    border: none;
+}
+
+.at--fullscreen .at-body {
+    max-height: none;
+    flex: 1;
+}
+
+/* Native :fullscreen pseudo-class as fallback */
+.at:fullscreen       { border-radius: 0; border: none; }
+.at:fullscreen .at-body { max-height: none; }

@@ -22,6 +22,28 @@
                     <i class="fas fa-hexagon-nodes me-2" style="font-size:.85em;opacity:.7;"></i>RuleCast
                 </h1>
             </div>
+            <div class="page-actions">
+                <button class="btn btn-primary btn-sm"
+                        :disabled="importing"
+                        @click="importFormats">
+                    <i class="fas fa-arrow-down-to-bracket me-1"></i>
+                    <span v-if="!importing">Import formats into DB</span>
+                    <span v-else><i class="fas fa-spinner fa-spin me-1"></i>Importing…</span>
+                </button>
+            </div>
+        </div>
+
+        <div v-if="import_result" class="rc-import-result"
+             :class="import_result.errors && import_result.errors.length ? 'rc-import-result--warn' : 'rc-import-result--ok'">
+            <i :class="import_result.errors && import_result.errors.length ? 'fas fa-triangle-exclamation' : 'fas fa-circle-check'"></i>
+            <span>
+                [[ import_result.created ]] format(s) created,
+                [[ import_result.updated ]] updated
+                <template v-if="import_result.errors && import_result.errors.length">
+                    — [[ import_result.errors.length ]] error(s):
+                    <em v-for="e in import_result.errors" :key="e">[[ e ]]</em>
+                </template>
+            </span>
         </div>
 
         {% if not info.get('available') %}
@@ -189,7 +211,8 @@
 {% block script %}
 <script type="module">
     const { createApp, ref, onMounted } = Vue
-    import { message_list } from '/static/js/toaster.js'
+    import { TOAST, apiFetch } from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
     import LoadingBar from '/static/js/components/loading-bar.js'
 
     createApp({
@@ -197,8 +220,26 @@
         components: { LoadingBar },
         setup() {
             const page_is_loading = ref(false)
+            const importing       = ref(false)
+            const import_result   = ref(null)
+
+            async function importFormats() {
+                importing.value     = true
+                import_result.value = null
+                const res = await apiFetch('/api/rulecast/import-formats', 'POST')
+                importing.value = false
+                if (!res.ok) {
+                    create_message('Import failed', TOAST.ERROR)
+                    return
+                }
+                const d = await res.json()
+                import_result.value = d
+                const msg = `${d.created} created, ${d.updated} updated`
+                create_message(msg, d.errors && d.errors.length ? TOAST.WARNING : TOAST.SUCCESS)
+            }
+
             onMounted(async () => { page_is_loading.value = true })
-            return { message_list, page_is_loading }
+            return { message_list, page_is_loading, importing, import_result, importFormats }
         }
     }).mount('#main-container')
 </script>

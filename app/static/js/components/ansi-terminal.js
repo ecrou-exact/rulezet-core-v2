@@ -22,7 +22,7 @@
  *   submit(text)   — user submitted a command (edit mode only)
  */
 
-const { ref, computed, watch, onMounted, nextTick } = Vue
+const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue
 
 // ── ANSI parser ────────────────────────────────────────────────────────────────
 
@@ -97,12 +97,14 @@ export default {
     emits: ['clear', 'submit'],
 
     setup(props, { emit, expose }) {
-        const body_ref    = ref(null)
-        const input_ref   = ref(null)
-        const auto_scroll = ref(true)
-        const line_count  = ref(0)
-        const input_text  = ref('')
-        const theme       = ref('dark')  // 'dark' | 'light' | 'solarized'
+        const body_ref      = ref(null)
+        const container_ref = ref(null)
+        const input_ref     = ref(null)
+        const auto_scroll   = ref(true)
+        const line_count    = ref(0)
+        const input_text    = ref('')
+        const fullscreen    = ref(false)
+        const theme         = ref('dark')  // 'dark' | 'light' | 'solarized'
         const _THEMES = ['dark', 'light', 'hacker']
 
         function toggle_theme() {
@@ -171,6 +173,19 @@ export default {
             input_text.value = ''
         }
 
+        function toggle_fullscreen() {
+            if (!document.fullscreenElement) {
+                container_ref.value?.requestFullscreen()
+            } else {
+                document.exitFullscreen()
+            }
+        }
+
+        function _on_fullscreen_change() {
+            fullscreen.value = !!document.fullscreenElement
+            if (fullscreen.value) nextTick(() => scroll_bottom())
+        }
+
         watch(
             () => [props.entries.length, props.lines.length],
             () => { if (props.live && auto_scroll.value) scroll_bottom() }
@@ -178,12 +193,18 @@ export default {
 
         onMounted(() => {
             if (props.live) scroll_bottom()
+            document.addEventListener('fullscreenchange', _on_fullscreen_change)
         })
 
-        expose({ scroll_bottom, focus_input })
+        onUnmounted(() => {
+            document.removeEventListener('fullscreenchange', _on_fullscreen_change)
+        })
+
+        expose({ scroll_bottom, focus_input, toggle_fullscreen })
 
         return {
-            body_ref, input_ref, auto_scroll, line_count, input_text,
+            body_ref, container_ref, input_ref, auto_scroll, line_count, input_text,
+            fullscreen, toggle_fullscreen,
             theme, toggle_theme, theme_icon,
             parsed, fmt_ts, on_scroll,
             handle_clear, copy_all, submit,
@@ -191,7 +212,7 @@ export default {
     },
 
     template: `
-<div class="at" :class="'at--' + theme">
+<div class="at" :class="['at--' + theme, fullscreen ? 'at--fullscreen' : '']" ref="container_ref">
     <!-- Header -->
     <div class="at-header">
         <div class="at-header-left">
@@ -211,6 +232,9 @@ export default {
             </button>
             <button class="at-btn" title="Scroll to bottom" @click="scroll_bottom">
                 <i class="fas fa-arrow-down"></i>
+            </button>
+            <button class="at-btn" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'" @click="toggle_fullscreen">
+                <i :class="fullscreen ? 'fas fa-compress' : 'fas fa-expand'"></i>
             </button>
             <button class="at-btn at-btn--danger" title="Clear" @click="handle_clear">
                 <i class="fas fa-trash"></i>

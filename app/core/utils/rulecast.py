@@ -25,17 +25,82 @@ def _parse_version(describe: str) -> str:
 
 
 KNOWN_FORMATS = [
-    {'name': 'YARA',          'extension': '.yar .yara', 'file': 'yara_parser.py',     'status': 'stable'},
-    {'name': 'Sigma',         'extension': '.yaml .yml', 'file': 'sigma_parser.py',    'status': 'stable'},
-    {'name': 'Suricata',      'extension': '.rules',     'file': 'suricata_parser.py', 'status': 'stable'},
-    {'name': 'CRS',           'extension': '.conf',      'file': 'crs_parser.py',      'status': 'stable'},
-    {'name': 'NSE',           'extension': '.nse',       'file': 'nse_parser.py',      'status': 'stable'},
-    {'name': 'Nova',          'extension': '.nov',       'file': 'nova_parser.py',     'status': 'stable'},
-    {'name': 'Zeek',          'extension': '.zeek .bro', 'file': 'zeek_parser.py',     'status': 'stable'},
-    {'name': 'Wazuh',         'extension': '.xml',       'file': 'wazuh_parser.py',    'status': 'stable'},
-    {'name': 'Elastic',       'extension': '.toml',      'file': 'elastic_parser.py',  'status': 'stable'},
-    {'name': 'ATR',           'extension': '.yaml .yml', 'file': 'atr_parser.py',      'status': 'stable'},
+    {
+        'name': 'YARA', 'extension': '.yar .yara', 'file': 'yara_parser.py', 'status': 'stable',
+        'file_extension': 'yar',   'icon': 'fa-shield-halved', 'color': '#FF6B2B',
+        'description': 'YARA malware detection rules — pattern matching for files and processes.',
+        'can_be_executed': True,
+    },
+    {
+        'name': 'Sigma', 'extension': '.yaml .yml', 'file': 'sigma_parser.py', 'status': 'stable',
+        'file_extension': 'yml',   'icon': 'fa-chart-simple',  'color': '#0078D4',
+        'description': 'Generic SIEM detection signatures — vendor-agnostic log search rules.',
+        'can_be_executed': False,
+    },
+    {
+        'name': 'Suricata', 'extension': '.rules', 'file': 'suricata_parser.py', 'status': 'stable',
+        'file_extension': 'rules', 'icon': 'fa-fish',          'color': '#F4A300',
+        'description': 'Suricata IDS/IPS network traffic detection rules.',
+        'can_be_executed': True,
+    },
+    {
+        'name': 'CRS', 'extension': '.conf', 'file': 'crs_parser.py', 'status': 'stable',
+        'file_extension': 'conf',  'icon': 'fa-shield-cat',    'color': '#E53935',
+        'description': 'OWASP Core Rule Set — ModSecurity WAF detection rules.',
+        'can_be_executed': False,
+    },
+    {
+        'name': 'NSE', 'extension': '.nse', 'file': 'nse_parser.py', 'status': 'stable',
+        'file_extension': 'nse',   'icon': 'fa-network-wired', 'color': '#8BC34A',
+        'description': 'Nmap Scripting Engine — Lua-based network service probes.',
+        'can_be_executed': True,
+    },
+    {
+        'name': 'Nova', 'extension': '.nov', 'file': 'nova_parser.py', 'status': 'stable',
+        'file_extension': 'nov',   'icon': 'fa-robot',         'color': '#AB47BC',
+        'description': 'Nova AI/LLM hunting rules for detecting adversarial AI behaviour.',
+        'can_be_executed': False,
+    },
+    {
+        'name': 'Zeek', 'extension': '.zeek .bro', 'file': 'zeek_parser.py', 'status': 'stable',
+        'file_extension': 'zeek',  'icon': 'fa-magnifying-glass', 'color': '#00ACC1',
+        'description': 'Zeek (formerly Bro) network analysis and detection scripts.',
+        'can_be_executed': True,
+    },
+    {
+        'name': 'Wazuh', 'extension': '.xml', 'file': 'wazuh_parser.py', 'status': 'stable',
+        'file_extension': 'xml',   'icon': 'fa-server',        'color': '#00C853',
+        'description': 'Wazuh SIEM/XDR detection rules in XML format.',
+        'can_be_executed': False,
+    },
+    {
+        'name': 'Elastic', 'extension': '.toml', 'file': 'elastic_parser.py', 'status': 'stable',
+        'file_extension': 'toml',  'icon': 'fa-bolt',          'color': '#FDD835',
+        'description': 'Elastic Security detection rules in TOML format.',
+        'can_be_executed': False,
+    },
+    {
+        'name': 'ATR', 'extension': '.yaml .yml', 'file': 'atr_parser.py', 'status': 'stable',
+        'file_extension': 'yaml',  'icon': 'fa-brain',         'color': '#FF7043',
+        'description': 'Agent Threat Rules — structured threat intelligence for AI agents.',
+        'can_be_executed': False,
+    },
 ]
+
+
+def get_formats_for_db() -> list[dict]:
+    """Return KNOWN_FORMATS shaped for FormatRule upsert."""
+    return [
+        {
+            'name':            f['name'],
+            'description':     f['description'],
+            'file_extension':  f['file_extension'],
+            'icon':            f['icon'],
+            'color':           f['color'],
+            'can_be_executed': f['can_be_executed'],
+        }
+        for f in KNOWN_FORMATS
+    ]
 
 
 def init_rulecast(root: str) -> None:

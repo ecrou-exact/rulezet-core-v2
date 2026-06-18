@@ -44,6 +44,7 @@ from .tags_api import tags_ns
 from .connectors_api import connectors_ns
 from .licenses_api import licenses_ns
 from .rules_api import rules_ns
+from .rulecast_api import rulecast_ns
 
 api.add_namespace(account_ns, path="/account")
 api.add_namespace(config_ns, path="/config")
@@ -58,6 +59,7 @@ api.add_namespace(tags_ns, path="/tags")
 api.add_namespace(connectors_ns, path="/connectors")
 api.add_namespace(licenses_ns, path="/licenses")
 api.add_namespace(rules_ns, path="/rules")
+api.add_namespace(rulecast_ns, path="/rulecast")
 
 
 # ── Automatic API call logging ────────────────────────────────────────────────

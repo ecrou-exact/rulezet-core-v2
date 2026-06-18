@@ -140,6 +140,21 @@
 .rc-req-item:last-child { border-bottom: none; }
 .rc-req-item i { color: var(--text-muted); font-size: .7rem; flex-shrink: 0; }
 
+/*---IMPORT_RESULT---*/
+.rc-import-result {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .7rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    margin-bottom: 1.25rem;
+    font-size: .85rem;
+}
+.rc-import-result--ok   { background: color-mix(in srgb,#27ae60 10%,transparent); color:#27ae60; border-color:color-mix(in srgb,#27ae60 30%,transparent); }
+.rc-import-result--warn { background: color-mix(in srgb,#f39c12 10%,transparent); color:#f39c12; border-color:color-mix(in srgb,#f39c12 30%,transparent); }
+.rc-import-result em { font-style:normal; font-family:ui-monospace,monospace; font-size:.78rem; margin-left:.25rem; }
+
 /*---UNAVAILABLE---*/
 .rc-unavailable {
     text-align: center;
