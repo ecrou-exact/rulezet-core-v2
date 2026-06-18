@@ -1,0 +1,453 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rules/rules.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rules/rule-detail.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/code-viewer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/tag-pill.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/comments/comments.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" v-cloak>
+    <loading-bar :active="!page_is_loading"></loading-bar>
+
+    <div v-if="page_is_loading">
+
+        <div class="page-header">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/">Home</a></li>
+                        <li class="breadcrumb-item"><a href="/rules/">Rules</a></li>
+                        <li class="breadcrumb-item active">[[ rule.identity.title ]]</li>
+                    </ol>
+                </nav>
+                <div class="rd-title-row">
+                    <span class="rl-format-badge rd-format-badge"
+                          :style="{ background: rule.identity.format_color || '#6c757d' }">
+                        <i v-if="rule.identity.format_icon" :class="'fas ' + rule.identity.format_icon"></i>
+                        [[ (rule.identity.format || '').toUpperCase() ]]
+                    </span>
+                    <h1 class="page-title" style="margin:0">[[ rule.identity.title ]]</h1>
+                    <i v-if="rule.community.is_verified" class="fas fa-circle-check rd-verified" title="Verified rule"></i>
+                </div>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-outline-secondary btn-sm" @click="downloadRaw" title="Download raw rule">
+                    <i class="fas fa-download"></i>
+                </button>
+                {% if current_user.is_authenticated %}
+                <button class="btn btn-outline-secondary btn-sm"
+                        :class="{ 'text-warning': is_favorited }"
+                        @click="toggleFavorite" title="Favorite">
+                    <i :class="is_favorited ? 'fas fa-star' : 'far fa-star'"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="page-body rd-layout">
+
+            {# ── Main column ── #}
+            <div class="rd-main">
+
+                {# Rule content card #}
+                <div class="rd-card">
+                    <div class="rd-card-header">
+                        <i class="fas fa-code rd-card-icon"></i>
+                        <span class="rd-card-title">Rule content</span>
+                        <span class="rd-card-badge" v-if="rule.identity.version">
+                            v[[ rule.identity.version ]]
+                        </span>
+                        <span class="rd-card-badge" :class="'rd-status-' + (rule.identity.status || 'stable')">
+                            [[ rule.identity.status || 'stable' ]]
+                        </span>
+                    </div>
+                    <div class="rd-card-body rd-card-body--nopad">
+                        <code-viewer
+                            :code="rule.content.content || ''"
+                            :language="HLJS_LANG[(rule.identity.format || '').toLowerCase()] || 'plaintext'"
+                            :title="(rule.identity.format || '').toUpperCase() + ' — ' + rule.identity.title"
+                            max-height="520px" />
+                    </div>
+                </div>
+
+                {# Export card #}
+                <div class="rd-card">
+                    <div class="rd-card-header">
+                        <i class="fas fa-file-export rd-card-icon"></i>
+                        <span class="rd-card-title">Export</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <div class="rd-export-tabs">
+                            <button v-for="tab in EXPORT_TABS" :key="tab.key"
+                                    class="rd-export-tab"
+                                    :class="{ 'is-active': export_tab === tab.key }"
+                                    @click="loadExport(tab.key)">
+                                <i :class="'fas ' + tab.icon"></i>
+                                [[ tab.label ]]
+                                <span v-if="export_loading === tab.key" class="rd-export-tab-spinner">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </span>
+                            </button>
+                        </div>
+
+                        <div v-if="export_error" class="rd-export-error">
+                            <i class="fas fa-triangle-exclamation"></i> [[ export_error ]]
+                        </div>
+
+                        <div v-if="export_data" class="rd-export-viewer">
+                            <code-viewer
+                                :code="export_data"
+                                language="json"
+                                :title="export_tab_label"
+                                max-height="600px" />
+                        </div>
+                        <div v-else-if="!export_error && !export_loading" class="rd-export-placeholder">
+                            <i class="fas fa-arrow-up"></i> Select a format above to preview the export
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {# ── Sidebar ── #}
+            <div class="rd-sidebar">
+
+                {# Metadata card #}
+                <div class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-circle-info rd-card-icon"></i>
+                        <span class="rd-card-title">Metadata</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <dl class="rd-meta-list">
+                            <template v-if="rule.classification.severity">
+                                <dt>Severity</dt>
+                                <dd><span :class="'rl-sev-badge rl-sev-' + rule.classification.severity">
+                                    [[ rule.classification.severity ]]
+                                </span></dd>
+                            </template>
+                            <template v-if="rule.classification.confidence">
+                                <dt>Confidence</dt>
+                                <dd><span class="rd-badge">[[ rule.classification.confidence ]]</span></dd>
+                            </template>
+                            <template v-if="rule.authorship.author">
+                                <dt>Author</dt>
+                                <dd>[[ rule.authorship.author ]]</dd>
+                            </template>
+                            <template v-if="rule.authorship.license">
+                                <dt>License</dt>
+                                <dd>[[ rule.authorship.license ]]</dd>
+                            </template>
+                            <template v-if="rule.authorship.creation_date">
+                                <dt>Created</dt>
+                                <dd>[[ rule.authorship.creation_date ]]</dd>
+                            </template>
+                            <template v-if="rule.authorship.last_modif">
+                                <dt>Modified</dt>
+                                <dd>[[ rule.authorship.last_modif ]]</dd>
+                            </template>
+                            <template v-if="rule.content.source">
+                                <dt>Source</dt>
+                                <dd class="rd-source-val">
+                                    <a v-if="rule.content.source.startsWith('http')"
+                                       :href="rule.content.source" target="_blank" rel="noopener">
+                                        [[ rule.content.source ]]
+                                    </a>
+                                    <span v-else>[[ rule.content.source ]]</span>
+                                </dd>
+                            </template>
+                            <template v-if="rule.identity.rule_hash">
+                                <dt>Hash</dt>
+                                <dd class="rd-hash">[[ rule.identity.rule_hash.slice(0, 16) ]]…</dd>
+                            </template>
+                        </dl>
+                    </div>
+                </div>
+
+                {# Platforms card #}
+                <div v-if="(rule.classification.platforms || []).length" class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-laptop rd-card-icon"></i>
+                        <span class="rd-card-title">Platforms</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <div class="rd-platform-list">
+                            <span v-for="p in rule.classification.platforms" :key="p" class="rd-platform-chip">
+                                <i :class="PLATFORM_ICONS[p] || 'fas fa-microchip'"></i> [[ p ]]
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {# MITRE ATT&CK card #}
+                <div v-if="(rule.classification.mitre_attack || []).length" class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-bullseye rd-card-icon"></i>
+                        <span class="rd-card-title">MITRE ATT&amp;CK</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <div class="rd-mitre-list">
+                            <a v-for="t in rule.classification.mitre_attack" :key="t"
+                               class="rd-mitre-chip"
+                               :href="'https://attack.mitre.org/techniques/' + t.replace('.', '/')"
+                               target="_blank" rel="noopener">[[ t ]]</a>
+                        </div>
+                    </div>
+                </div>
+
+                {# Tags card #}
+                <div v-if="(tags || []).length" class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-tags rd-card-icon"></i>
+                        <span class="rd-card-title">Tags</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <div class="rd-tag-list">
+                            <tag-pill v-for="tag in tags" :key="tag.uuid" :tag="tag" />
+                        </div>
+                    </div>
+                </div>
+
+                {# CVEs card #}
+                <div v-if="(cves || []).length" class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-bug rd-card-icon"></i>
+                        <span class="rd-card-title">Vulnerabilities</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <div class="rd-cve-list">
+                            <span v-for="cve in cves" :key="cve.uuid || cve.cve_id" class="rd-cve-chip">
+                                [[ cve.cve_id ]]
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {# References card #}
+                <div v-if="(rule.classification.references || []).length" class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-link rd-card-icon"></i>
+                        <span class="rd-card-title">References</span>
+                    </div>
+                    <div class="rd-card-body">
+                        <ul class="rd-ref-list">
+                            <li v-for="ref in rule.classification.references" :key="ref">
+                                <a :href="ref" target="_blank" rel="noopener" class="rd-ref-link">
+                                    <i class="fas fa-arrow-up-right-from-square"></i>
+                                    [[ ref ]]
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                {# Votes + stats card #}
+                <div class="rd-card rd-card--compact">
+                    <div class="rd-card-header">
+                        <i class="fas fa-chart-simple rd-card-icon"></i>
+                        <span class="rd-card-title">Stats</span>
+                    </div>
+                    <div class="rd-card-body rd-stats-row">
+                        <div class="rd-stat">
+                            <i class="fas fa-thumbs-up"></i>
+                            <span>[[ rule.community.votes.up ]]</span>
+                        </div>
+                        <div class="rd-stat">
+                            <i class="fas fa-thumbs-down"></i>
+                            <span>[[ rule.community.votes.down ]]</span>
+                        </div>
+                        <div class="rd-stat">
+                            <i class="fas fa-star"></i>
+                            <span>[[ rule.community.favorites.count ]]</span>
+                        </div>
+                        <div class="rd-stat">
+                            <i class="fas fa-comment"></i>
+                            <span>[[ rule.community.comments.count ]]</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ── False positives ── #}
+        <div v-if="rule.content.false_positives" class="rd-fp-section">
+            <div class="rd-card">
+                <div class="rd-card-header">
+                    <i class="fas fa-triangle-exclamation rd-card-icon"></i>
+                    <span class="rd-card-title">False positives</span>
+                </div>
+                <div class="rd-card-body">
+                    <p class="rd-fp-text">[[ rule.content.false_positives ]]</p>
+                </div>
+            </div>
+        </div>
+
+        {# ── Comments ── #}
+        <div class="rd-comments-section">
+            <div class="rd-card">
+                <div class="rd-card-header">
+                    <i class="fas fa-comments rd-card-icon"></i>
+                    <span class="rd-card-title">Discussion</span>
+                    <span class="rd-card-badge">[[ rule.community.comments.count ]]</span>
+                </div>
+                <div class="rd-card-body">
+                    <comment-thread
+                        object-type="rule"
+                        :object-id="rule.identity.id"
+                        :can-create="can_comment"
+                        :can-edit-own="can_comment"
+                        :can-delete-own="can_comment"
+                        :can-moderate="is_admin"
+                        :current-user-id="current_user_id" />
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+    const { createApp, ref, computed, onMounted } = Vue
+    import { TOAST, apiFetch }              from '/static/js/constants.js'
+    import { create_message, message_list } from '/static/js/toaster.js'
+    import LoadingBar     from '/static/js/components/loading-bar.js'
+    import CodeViewer     from '/static/js/components/code-viewer.js'
+    import TagPill        from '/static/js/components/tag-pill.js'
+    import CommentThread  from '/static/js/components/comments/comment-thread.js'
+
+    const RULE_UUID      = '{{ rule_uuid }}'
+    const can_comment    = {{ (current_user.is_authenticated) | tojson }}
+    const is_admin       = {{ (current_user.is_authenticated and current_user.is_admin() if current_user.is_authenticated else False) | tojson }}
+    const current_user_id = {{ current_user.id if current_user.is_authenticated else 0 }}
+
+    const HLJS_LANG = {
+        yara: 'c', sigma: 'yaml', suricata: 'nginx', crs: 'nginx',
+        nse: 'lua', nova: 'yaml', zeek: 'javascript', wazuh: 'xml',
+    }
+    const PLATFORM_ICONS = {
+        windows:    'fab fa-windows',
+        linux:      'fab fa-linux',
+        macos:      'fab fa-apple',
+        network:    'fas fa-network-wired',
+        cloud:      'fas fa-cloud',
+        android:    'fab fa-android',
+        ios:        'fab fa-apple',
+        container:  'fab fa-docker',
+        office365:  'fas fa-envelope',
+        'azure-ad': 'fas fa-shield-halved',
+    }
+    const EXPORT_TABS = [
+        { key: 'json',        label: 'JSON',       icon: 'fa-brackets-curly' },
+        { key: 'misp-object', label: 'MISP Object', icon: 'fa-circle-nodes'  },
+        { key: 'misp-event',  label: 'MISP Event',  icon: 'fa-diagram-project' },
+        { key: 'stix',        label: 'STIX',        icon: 'fa-shield-halved'  },
+    ]
+
+    createApp({
+        delimiters: ['[[', ']]'],
+        components: { LoadingBar, CodeViewer, TagPill, CommentThread },
+        setup() {
+            const page_is_loading = ref(false)
+
+            // Rule detail data (nested structure from to_json_detail)
+            const rule = ref({
+                identity:       { id: 0, title: '', format: '', format_color: null, format_icon: null,
+                                  status: 'stable', version: '', rule_hash: '' },
+                content:        { content: '', description: '', false_positives: '', source: '', github_path: '' },
+                authorship:     { author: '', license: '', creation_date: null, last_modif: null, submitter: null },
+                classification: { severity: null, confidence: null, platforms: [], mitre_attack: [], references: [] },
+                community:      { votes: { up: 0, down: 0 }, favorites: { count: 0, is_favorited: false },
+                                  comments: { count: 0 }, is_verified: false },
+                relations:      { tags: [], cves: [] },
+                history:        {},
+                connector:      {},
+            })
+            const tags  = ref([])
+            const cves  = ref([])
+            const is_favorited = ref(false)
+
+            // Export state
+            const export_tab     = ref('')
+            const export_loading = ref('')
+            const export_data    = ref('')
+            const export_error   = ref('')
+            const export_tab_label = computed(() => {
+                const t = EXPORT_TABS.find(t => t.key === export_tab.value)
+                return t ? t.label : ''
+            })
+
+            async function loadRule() {
+                const res = await apiFetch(`/api/rules/${RULE_UUID}`)
+                if (!res.ok) {
+                    create_message('Rule not found', TOAST.ERROR)
+                    return
+                }
+                const d = await res.json()
+                rule.value     = d
+                tags.value     = d.tags || []
+                cves.value     = d.cves || []
+                is_favorited.value = d.community?.favorites?.is_favorited ?? false
+            }
+
+            async function loadExport(key) {
+                if (export_loading.value) return
+                export_tab.value    = key
+                export_data.value   = ''
+                export_error.value  = ''
+                export_loading.value = key
+
+                if (key === 'stix') {
+                    create_message('STIX conversion in progress (external API)…', TOAST.INFO)
+                }
+
+                const res = await apiFetch(`/api/rules/${RULE_UUID}/export/${key}`)
+                export_loading.value = ''
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}))
+                    export_error.value = d.message || `Export failed (${res.status})`
+                    return
+                }
+                const d = await res.json()
+                export_data.value = d.data || ''
+            }
+
+            function downloadRaw() {
+                const content = rule.value?.content?.content
+                if (!content) return
+                const ext = rule.value?.content?.extension || 'txt'
+                const blob = new Blob([content], { type: 'text/plain' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `${rule.value.identity.title}.${ext}`
+                a.click()
+                URL.revokeObjectURL(a.href)
+            }
+
+            async function toggleFavorite() {
+                is_favorited.value = !is_favorited.value
+                // POST to favorite API (endpoint TBD — optimistic update for now)
+            }
+
+            onMounted(async () => {
+                await loadRule()
+                page_is_loading.value = true
+            })
+
+            return {
+                page_is_loading, message_list,
+                rule, tags, cves, is_favorited,
+                export_tab, export_loading, export_data, export_error, export_tab_label,
+                HLJS_LANG, PLATFORM_ICONS, EXPORT_TABS,
+                can_comment, is_admin, current_user_id,
+                loadExport, downloadRaw, toggleFavorite,
+            }
+        }
+    }).mount('#main-container')
+</script>
+{% endblock %}

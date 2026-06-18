@@ -56,12 +56,13 @@ def require_permission(key=None, public=False):
 # It handles both X-API-KEY (external) and session auth (internal frontend).
 # Same permission keys as require_permission() and hasPerm() on the frontend.
 
-def api_require_permission(key=None):
+def api_require_permission(key=None, public=False):
     """Universal API decorator — mirrors require_permission() for the API layer.
 
     key=None         → any authenticated user (session or valid API key)
     key='admin_only' → admin flag required
     key='some.perm'  → user must have that permission key (admins always pass)
+    public=True      → anonymous access allowed, no auth check
 
     Auth priority:
       1. X-API-KEY present  → validate key, then check permission
@@ -70,6 +71,9 @@ def api_require_permission(key=None):
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
+            if public:
+                return f(*args, **kwargs)
+
             api_key = request.headers.get('X-API-KEY')
 
             if api_key:

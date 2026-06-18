@@ -1,0 +1,266 @@
+/*---RULE_DETAIL---*/
+
+.rd-title-row {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+    margin-top: .25rem;
+}
+.rd-format-badge {
+    font-size: .72rem;
+    flex-shrink: 0;
+}
+.rd-verified {
+    color: #27ae60;
+    font-size: 1rem;
+}
+
+/*---LAYOUT---*/
+.rd-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 1100px) { .rd-layout { grid-template-columns: 1fr; } }
+
+.rd-main    { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.rd-sidebar { display: flex; flex-direction: column; gap: .9rem; }
+
+.rd-fp-section,
+.rd-comments-section {
+    margin-top: .25rem;
+}
+
+/*---CARD---*/
+.rd-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.rd-card--compact { font-size: .87rem; }
+
+.rd-card-header {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elevated);
+}
+.rd-card-icon { color: var(--text-muted); font-size: .82rem; }
+.rd-card-title { font-size: .88rem; font-weight: 600; color: var(--text-main); }
+.rd-card-badge {
+    margin-left: auto;
+    font-size: .72rem;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg-body);
+}
+
+.rd-card-body { padding: 1rem; }
+.rd-card-body--nopad { padding: 0; }
+
+/*---STATUS_BADGES_IN_CARD---*/
+.rd-status-stable       { color: #27ae60; }
+.rd-status-test         { color: #2980b9; }
+.rd-status-experimental { color: #e67e22; }
+.rd-status-deprecated   { color: #7f8c8d; }
+
+/*---EXPORT_TABS---*/
+.rd-export-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-bottom: 1rem;
+}
+.rd-export-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .9rem;
+    font-size: .8rem;
+    font-weight: 500;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.rd-export-tab:hover { border-color: var(--brand); color: var(--brand); }
+.rd-export-tab.is-active {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 10%, var(--bg-body));
+    color: var(--brand);
+    font-weight: 600;
+}
+.rd-export-tab-spinner { font-size: .75rem; margin-left: .15rem; }
+
+.rd-export-error {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .65rem .9rem;
+    background: rgba(231,76,60,.08);
+    border: 1px solid rgba(231,76,60,.3);
+    border-radius: var(--radius-sm);
+    color: #c0392b;
+    font-size: .84rem;
+    margin-bottom: .75rem;
+}
+.rd-export-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: 2.5rem;
+    color: var(--text-muted);
+    font-size: .85rem;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+}
+
+/*---META_LIST---*/
+.rd-meta-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .45rem .9rem;
+    margin: 0;
+    align-items: start;
+}
+.rd-meta-list dt {
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+    padding-top: .1rem;
+    white-space: nowrap;
+}
+.rd-meta-list dd {
+    font-size: .84rem;
+    color: var(--text-secondary);
+    margin: 0;
+    word-break: break-all;
+}
+.rd-badge {
+    display: inline-block;
+    padding: .12rem .45rem;
+    font-size: .72rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+.rd-source-val { word-break: break-all; }
+.rd-hash { font-family: monospace; font-size: .78rem; color: var(--text-muted); }
+
+/*---PLATFORM LIST---*/
+.rd-platform-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.rd-platform-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem .6rem;
+    font-size: .78rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+
+/*---MITRE---*/
+.rd-mitre-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.rd-mitre-chip {
+    display: inline-block;
+    padding: .2rem .6rem;
+    font-size: .75rem;
+    font-weight: 600;
+    background: rgba(155,89,182,.1);
+    border: 1px solid rgba(155,89,182,.3);
+    color: #8e44ad;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-family: monospace;
+    transition: background .15s;
+}
+.rd-mitre-chip:hover { background: rgba(155,89,182,.2); }
+
+/*---TAGS---*/
+.rd-tag-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+/*---CVES---*/
+.rd-cve-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.rd-cve-chip {
+    display: inline-block;
+    padding: .2rem .55rem;
+    font-size: .73rem;
+    font-weight: 600;
+    font-family: monospace;
+    background: rgba(231,76,60,.08);
+    border: 1px solid rgba(231,76,60,.25);
+    color: #c0392b;
+    border-radius: var(--radius-sm);
+}
+
+/*---REFERENCES---*/
+.rd-ref-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+.rd-ref-link {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .8rem;
+    color: var(--brand);
+    text-decoration: none;
+    word-break: break-all;
+}
+.rd-ref-link:hover { text-decoration: underline; }
+.rd-ref-link i { flex-shrink: 0; font-size: .7rem; }
+
+/*---STATS---*/
+.rd-stats-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.rd-stat {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .85rem;
+    color: var(--text-secondary);
+}
+.rd-stat i { color: var(--text-muted); font-size: .82rem; }
+
+/*---FALSE_POSITIVES---*/
+.rd-fp-text {
+    font-size: .87rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/*---DARK_OVERRIDES---*/
+[data-bs-theme="dark"] .rd-mitre-chip {
+    background: rgba(155,89,182,.15);
+    color: #c39bd3;
+}
+[data-bs-theme="dark"] .rd-cve-chip {
+    background: rgba(231,76,60,.12);
+    color: #e88070;
+}

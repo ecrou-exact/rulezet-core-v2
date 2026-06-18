@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, url_for
+from flask import Blueprint, render_template
 from ...core.utils.decorators import require_permission
 from ..rules.rules_core import get_formats
 
@@ -14,6 +14,12 @@ PLATFORMS = [
 @require_permission('rules.view', public=True)
 def index():
     return render_template('rules/index.html')
+
+
+@rules_blueprint.route('/<string:uuid>')
+@require_permission('rules.view', public=True)
+def detail(uuid):
+    return render_template('rules/detail.html', rule_uuid=uuid)
 
 
 @rules_blueprint.route('/create')

@@ -14,6 +14,109 @@ def get_formats():
     return FormatRule.query.filter_by(is_active=True).order_by(FormatRule.name).all()
 
 
+def get_rule_by_uuid(uuid: str) -> Rule | None:
+    """Return an active (not deleted) Rule by UUID, or None."""
+    return Rule.query.filter_by(uuid=uuid, is_deleted=False).first()
+
+
+def get_rules_paginated(page=1, per_page=20, search='', sort='created_at', direction='desc',
+                        format_uuid='', severity='', status='') -> dict:
+    """Return a page of rules with optional filters. Used by the API list endpoint."""
+    q = Rule.query.filter_by(is_deleted=False)
+
+    if format_uuid:
+        fmt = FormatRule.query.filter_by(uuid=format_uuid, is_active=True).first()
+        if fmt:
+            q = q.filter(Rule.format_id == fmt.id)
+        else:
+            q = q.filter(db.false())
+
+    if severity:
+        q = q.filter(Rule.severity == severity)
+    if status:
+        q = q.filter(Rule.status == status)
+
+    if search:
+        like = f'%{search}%'
+        q = q.filter(
+            db.or_(Rule.title.ilike(like), Rule.description.ilike(like))
+        )
+
+    _SORT = {
+        'title':      Rule.title,
+        'created_at': Rule.created_at,
+        'severity':   Rule.severity,
+        'status':     Rule.status,
+    }
+    col = _SORT.get(sort, Rule.created_at)
+    q = q.order_by(col.desc() if direction == 'desc' else col.asc())
+
+    total       = q.count()
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    rules       = q.offset((page - 1) * per_page).limit(per_page).all()
+
+    items = []
+    for rule in rules:
+        d = rule.to_json()
+        d['format_color'] = rule.format_rule.color if rule.format_rule else None
+        d['format_icon']  = rule.format_rule.icon  if rule.format_rule else None
+        d['tags'] = [a.to_json() for a in rule.rule_tags_assocs.limit(5)]
+        items.append(d)
+
+    return {
+        'items':       items,
+        'total':       total,
+        'total_pages': total_pages,
+        'page':        page,
+        'per_page':    per_page,
+    }
+
+
+def soft_delete_rule(rule: Rule, user_id: int) -> str:
+    """Soft-delete a rule and log the action."""
+    rule.is_deleted    = True
+    rule.deleted_at    = datetime.utcnow()
+    rule.deleted_by_id = user_id
+    db.session.commit()
+    log_action(
+        title=f'Rule deleted: {rule.title}',
+        action='delete',
+        category='rules',
+        level='warning',
+        object_type='rule',
+        object_id=rule.id,
+        is_public=False,
+        meta={'uuid': rule.uuid},
+    )
+    return 'Rule deleted.'
+
+
+def bulk_delete_rules(uuids: list, user_id: int) -> int:
+    """Soft-delete multiple rules by UUID list. Returns count deleted."""
+    count = 0
+    now   = datetime.utcnow()
+    for uuid in uuids:
+        rule = Rule.query.filter_by(uuid=uuid, is_deleted=False).first()
+        if rule:
+            rule.is_deleted    = True
+            rule.deleted_at    = now
+            rule.deleted_by_id = user_id
+            count += 1
+    if count:
+        db.session.commit()
+        log_action(
+            title=f'Bulk delete: {count} rule(s)',
+            action='bulk_delete',
+            category='rules',
+            level='warning',
+            object_type='rule',
+            object_id=None,
+            is_public=False,
+            meta={'count': count},
+        )
+    return count
+
+
 # ── Create ────────────────────────────────────────────────────────────────────
 
 def create_rule_core(data: dict, user_id: int):
